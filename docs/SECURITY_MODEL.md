@@ -1,6 +1,6 @@
-# KryptoVault — Security Model & Threat Assessment
+# KryptoInfo — Security Model & Threat Assessment
 
-> Dokumen Model Keamanan dan Analisis Ancaman KryptoVault  
+> Dokumen Model Keamanan dan Analisis Ancaman KryptoInfo  
 > Versi: 1.0.0 | Status: Active Security Standard
 
 ---
@@ -17,7 +17,7 @@
 
 ## 2. Model Ancaman (Threat Model & Attacker Profiles)
 
-| ID Ancaman | Skenario Ancaman | Profil Penyerang | Dampak Potensial | Mitigasi KryptoVault |
+| ID Ancaman | Skenario Ancaman | Profil Penyerang | Dampak Potensial | Mitigasi KryptoInfo |
 |---|---|---|---|---|
 | **T-01** | *Eavesdropping / Man-in-the-Middle (MitM)* pada jaringan | Penyerang jaringan lokal / sniffing paket | Pencurian kredensial atau berkas plaintext | Enkripsi transport TLS/HTTPS + Enkripsi payload AES-256-GCM. |
 | **T-02** | Pencurian Dump Database MySQL (*Stolen DB Dump*) | Penyerang dengan akses ke storage DB | Kebocoran berkas dan password pengguna | Password di-hash dengan Salt (Argon2/bcrypt). Berkas tersimpan dalam bentuk ciphertext AES-GCM; kunci enkripsi disimpan di `.env` server terpisah, bukan di tabel DB. |
@@ -25,7 +25,7 @@
 | **T-04** | *Replay Attack* pada Otentikasi USB | Penyerang merekam komunikasi token USB | Bypass otentikasi dongle fisik | Protokol **Challenge-Response**: Server mengirimkan nonce acak 32-byte berkala dengan masa berlaku pendek (*timestamped challenge*). Respons hanya sah untuk 1 kali penggunaan. |
 | **T-05** | *Brute-Force & Credential Stuffing* | Penyerang mencoba ribuan kombinasi password | Kompromi akun pengguna | Rate-limiting di layer API (`express-rate-limit`), hashing lambat dengan cost tinggi (Argon2/bcrypt), dan syarat USB 2FA. |
 | **T-06** | *Timing Attacks* pada Verifikasi Token / Tag | Analisis waktu respons untuk menebak signature | Kebocoran kunci / pemalsuan signature | Penggunaan `crypto.timingSafeEqual()` untuk semua komparasi hash, HMAC, dan token. |
-| **T-07** | *Accidental USB Destruction* (Kerusakan USB Pengguna) | Bug software menghapus data flash drive | Kerusakan perangkat atau data penting pengguna | Aturan mutlak: USB Agent beroperasi di file workspace terisolasi (misal `.kryptovault/token.key`), tidak ada syscall `format`, `diskpart`, atau raw disk write. |
+| **T-07** | *Accidental USB Destruction* (Kerusakan USB Pengguna) | Bug software menghapus data flash drive | Kerusakan perangkat atau data penting pengguna | Aturan mutlak: USB Agent beroperasi di file workspace terisolasi (misal `.kryptoinfo/token.key`), tidak ada syscall `format`, `diskpart`, atau raw disk write. |
 
 ---
 
@@ -75,7 +75,7 @@ USB fisik bertindak sebagai faktor otentikasi kepemilikan fisik (*Something You 
 6. **Konsumsi Nonce**: Nonce langsung dihanguskan (*single-use*) untuk mencegah replay attack.
 
 ### 4.3. USB Safety & Fallback Development
-- **Aturan Keamanan Fisik**: Tidak menyentuh struktur partisi atau file di luar direktori spesifik KryptoVault.
+- **Aturan Keamanan Fisik**: Tidak menyentuh struktur partisi atau file di luar direktori spesifik KryptoInfo.
 - **Development Key**: Menyediakan *Virtual USB Mode* untuk lingkungan testing otomatis (CI/CD atau unit testing) agar developer tanpa dongle fisik dapat menguji fungsionalitas secara deterministik tanpa menurunkan standar keamanan.
 
 ---

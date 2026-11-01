@@ -1,18 +1,18 @@
-# KryptoVault — Architecture Document
+# KryptoInfo — Architecture Document
 
-> Dokumen Arsitektur Sistem KryptoVault  
+> Dokumen Arsitektur Sistem KryptoInfo  
 > Versi: 1.0.0 | Status: Draft / Initial Architecture
 
 ---
 
 ## 1. Ikhtisar Sistem (System Overview)
 
-KryptoVault adalah sistem penyimpanan dan pengelolaan berkas/data terenkripsi tingkat tinggi (*secure cryptographic vault*) dengan otentikasi multi-faktor berbasis fisik (USB Dongle / USB Agent). Sistem dirancang dengan prinsip **Zero Trust**, pemisahan tanggung jawab (*separation of concerns*), dan isolasi kompartemen keamanan kriptografi.
+KryptoInfo adalah sistem penyimpanan dan pengelolaan berkas/data terenkripsi tingkat tinggi (*secure cryptographic vault*) dengan otentikasi multi-faktor berbasis fisik (USB Dongle / USB Agent). Sistem dirancang dengan prinsip **Zero Trust**, pemisahan tanggung jawab (*separation of concerns*), dan isolasi kompartemen keamanan kriptografi.
 
 Sistem terdiri dari 3 subsistem utama yang saling terisolasi:
-1. **Frontend (KryptoVault UI)**: Single Page Application berbasis **React 18.3.1** dengan Vite.
-2. **Backend (KryptoVault Core API)**: REST API berbasis **Node.js** dan **Express** yang menangani orkestrasi bisnis, autentikasi sesi, dan eksekusi kriptografi server.
-3. **USB Agent (KryptoVault Dongle Daemon)**: Agen lokal terpisah yang berinteraksi langsung dengan storage/hardware USB fisik secara aman untuk *challenge-response authentication* dan penyimpanan *hardware-bound credentials*.
+1. **Frontend (KryptoInfo UI)**: Single Page Application berbasis **React 18.3.1** dengan Vite.
+2. **Backend (KryptoInfo Core API)**: REST API berbasis **Node.js** dan **Express** yang menangani orkestrasi bisnis, autentikasi sesi, dan eksekusi kriptografi server.
+3. **USB Agent (KryptoInfo Dongle Daemon)**: Agen lokal terpisah yang berinteraksi langsung dengan storage/hardware USB fisik secara aman untuk *challenge-response authentication* dan penyimpanan *hardware-bound credentials*.
 4. **Database (MySQL)**: Penyimpanan data relasional terstruktur untuk metadata pengguna, log audit terenkripsi, referensi berkas vault, dan session state.
 
 ---
@@ -85,16 +85,23 @@ graph TB
   - Melakukan verifikasi *challenge-response* fisik: Backend mengirimkan random nonce ke USB Agent, USB Agent menandatangani nonce dengan cryptographic secret di dongle, lalu mengembalikan signature ke Backend.
 - **Prinsip Keselamatan USB (USB Safety)**:
   - **Read-Only / Sandboxed Scope**: Tidak pernah menjalankan format, partisi, penghapusan, atau penimpaan partisi USB.
-  - Menggunakan file penanda identitas terisolasi (misal `.kryptovault/dongle.sig`).
+  - Menggunakan file penanda identitas terisolasi (misal `.kryptoinfo/dongle.sig`).
   - Selama pengujian awal, mendukung mode *Simulated Dongle / Virtual USB Key* agar tidak membutuhkan hardware fisik langsung saat unit testing.
 
-### 3.4. Database (`MySQL`)
-- **Driver**: `mysql2` dengan connection pooling dan *prepared statements* (pencegahan mutlak terhadap SQL Injection).
+### 3.4. Database & ORM (`MariaDB` dari XAMPP + `Prisma ORM v7`)
+- **Engine**: MariaDB 10.4.32 (dari XAMPP lokal di `E:\xampp\mysql\`).
+- **Host & Port**: `127.0.0.1:3306`.
+- **Database Name**: `kryptoinfo`.
+- **Database User**: `root` bawaan XAMPP tanpa password (tanpa pembuatan user baru atau perubahan hak akses).
+- **Pengelolaan Database**: phpMyAdmin (`http://localhost/phpmyadmin/`).
+- **ORM Layer**: **Prisma ORM v7** (versi stabil resmi dengan dukungan penuh untuk MariaDB).
+- **Datasource Provider**: `provider = "mysql"` dengan connection URL `mysql://root:@127.0.0.1:3306/kryptoinfo`.
+- **Integritas Database**: Tidak mengubah konfigurasi port XAMPP, tidak menginstal server MySQL lain, dan tidak menghapus tabel/database yang sudah ada.
 - **Skema Dasar**:
-  - `users`: Data pengguna (ID, username, password_hash via Argon2/bcrypt, role, created_at).
-  - `dongles`: Pendaftaran USB token terdaftar (hardware_serial_hash, public_key/identifier, is_active).
-  - `vault_items`: Metadata berkas terenkripsi (file_id, owner_id, original_filename, mime_type, file_size, storage_path, iv, auth_tag, key_version, created_at).
-  - `audit_logs`: Catatan aktivitas forensik (log_id, user_id, action, status, ip_address, timestamp).
+  - `User`: Data pengguna (ID, username, password_hash via Argon2/bcrypt, role, createdAt).
+  - `Dongle`: Pendaftaran USB token terdaftar (hardware_serial_hash, public_key/identifier, isActive).
+  - `VaultItem`: Metadata berkas terenkripsi (id, ownerId, originalFilename, mimeType, fileSize, storagePath, iv, authTag, keyVersion, createdAt).
+  - `AuditLog`: Catatan aktivitas forensik (id, userId, action, status, ipAddress, timestamp).
 
 ---
 

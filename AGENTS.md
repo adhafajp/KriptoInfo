@@ -1,10 +1,10 @@
 
-# KryptoVault - Project Rules
+# KryptoInfo - Project Rules
 
 ## Technology Constraints
 - Always use React 18.3.1.
 - Use Node.js and Express for the backend.
-- Use MySQL as the database.
+- Use MySQL-compatible MariaDB (XAMPP) with Prisma ORM as the database.
 - Do not change the required technology stack without approval.
 
 ## Architecture

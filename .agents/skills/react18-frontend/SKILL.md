@@ -1,14 +1,14 @@
 ---
 name: react18-frontend
 description: >
-  Prosedur pengembangan frontend menggunakan React 18.3.1 untuk proyek KryptoVault.
+  Prosedur pengembangan frontend menggunakan React 18.3.1 untuk proyek KryptoInfo.
   Mencakup component architecture, state management, responsive UI, accessibility,
   dan frontend testing.
 ---
 
 # React 18 Frontend Development
 
-Skill ini digunakan saat membangun atau memodifikasi komponen frontend KryptoVault. React versi **18.3.1** adalah versi wajib yang digunakan.
+Skill ini digunakan saat membangun atau memodifikasi komponen frontend KryptoInfo. React versi **18.3.1** adalah versi wajib yang digunakan.
 
 ---
 

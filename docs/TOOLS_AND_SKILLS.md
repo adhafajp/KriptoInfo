@@ -1,4 +1,4 @@
-# Tools & Skills — KryptoVault
+# Tools & Skills — KryptoInfo
 
 > Dokumentasi konfigurasi tools dan agent skills yang tersedia di workspace ini.
 
@@ -103,27 +103,25 @@ Tiga skills project-specific telah dibuat di `.agents/skills/`:
 - `gemini_get_doc` — ambil konten dokumentasi spesifik.
 
 > [!NOTE]
-> Gemini API Docs MCP tidak diperlukan untuk proyek KryptoVault, tetapi tersedia jika dibutuhkan.
+> Gemini API Docs MCP tidak diperlukan untuk proyek KryptoInfo, tetapi tersedia jika dibutuhkan.
 
 ---
 
-## Hal yang Belum Tersedia
+## Status Komponen Pendukung
 
-| Item | Status | Tindakan |
-|------|--------|----------|
-| MySQL CLI di PATH | ❌ Belum tersedia | Install MySQL atau tambahkan ke PATH |
-| File `.gitignore` | ❌ Belum dibuat | Akan dibuat saat setup backend/frontend |
-| File `README.md` | ❌ Belum dibuat | Akan dibuat saat struktur proyek final |
-| Remote Git repository | ❌ Belum dikonfigurasi | `git remote add origin <url>` |
-| File `.env` | ❌ Belum dibuat | Akan dibuat saat implementasi backend |
-| Database `kryptovault` | ❌ Belum dibuat | Buat setelah MySQL tersedia |
+| Item | Status | Catatan |
+|------|--------|---------|
+| File `.gitignore` | ✅ Tersedia | Mengabaikan `.env`, `node_modules`, `dist`, build & log files |
+| File `backend/.env` | ✅ Tersedia | Terkonfigurasi dengan `DATABASE_URL` XAMPP MariaDB `127.0.0.1:3306` |
+| Database `kryptoinfo` | ✅ Tersedia | Sudah dibuat di phpMyAdmin & terverifikasi |
+| MySQL CLI di PATH | ⚠️ Belum di PATH | Opsional: binary tersedia di `E:\xampp\mysql\bin\mysql.exe` |
+| Remote Git repository | ℹ️ Belum dikonfigurasi | Opsional: dapat ditambahkan (`git remote add origin <url>`) jika ingin push ke remote |
+| File `README.md` | ℹ️ Rencana Phase 5 | Akan dibuat/diperbarui saat implementasi final |
 
 ---
 
-## Rekomendasi Sebelum Memulai Implementasi
+## Rekomendasi Sebelum Memulai Implementasi (Phase 1)
 
-1. **Install/konfigurasi MySQL** — pastikan MySQL CLI tersedia di PATH.
-2. **Buat database** — `CREATE DATABASE kryptovault;`
-3. **Setup remote repository** — untuk backup dan kolaborasi.
-4. **Review skills** — baca ketiga SKILL.md sebelum memulai implementasi.
-5. **Tunggu master prompt** — jangan mulai implementasi tanpa instruksi lengkap.
+1. **Review Skills & Aturan**: Pastikan ketiga SKILL.md dan `AGENTS.md` dipatuhi secara ketat.
+2. **Koneksi Database**: XAMPP MariaDB port 3306 dan database `kryptoinfo` sudah terverifikasi aktif.
+3. **Eksekusi Phase 1**: Siap memulai fondasi backend (Express + Prisma ORM v7) dan frontend (React 18.3.1 + Vite) setelah persetujuan pengguna.

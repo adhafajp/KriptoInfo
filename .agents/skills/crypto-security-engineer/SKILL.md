@@ -3,12 +3,12 @@ name: crypto-security-engineer
 description: >
   Prosedur untuk implementasi algoritma kriptografi, pengelolaan encryption key,
   nonce/IV, validasi authentication tag, pengujian enkripsi/dekripsi, dan security review
-  pada proyek KryptoVault.
+  pada proyek KryptoInfo.
 ---
 
 # Crypto Security Engineer
 
-Skill ini digunakan saat mengimplementasikan atau memodifikasi fitur kriptografi pada proyek KryptoVault. Ikuti seluruh prosedur di bawah ini secara berurutan.
+Skill ini digunakan saat mengimplementasikan atau memodifikasi fitur kriptografi pada proyek KryptoInfo. Ikuti seluruh prosedur di bawah ini secara berurutan.
 
 ---
 

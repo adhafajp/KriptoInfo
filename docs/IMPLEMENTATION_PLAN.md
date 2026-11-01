@@ -1,4 +1,4 @@
-# KryptoVault — Implementation Plan & Roadmap
+# KryptoInfo — Implementation Plan & Roadmap
 
 > Rencana Implementasi Bertahap (Phased Implementation Plan)  
 > Versi: 1.0.0 | Status: Active Working Plan
@@ -7,7 +7,7 @@
 
 ## 1. Ikhtisar Rencana Kerja (Phasing Strategy)
 
-Pembangunan KryptoVault dilakukan dengan pendekatan terstruktur per fase (*step-by-step phased execution*). Setiap fase memiliki cakupan yang terukur, pengujian mandiri (*self-contained testing*), dan evaluasi kelayakan sebelum melangkah ke fase berikutnya.
+Pembangunan KryptoInfo dilakukan dengan pendekatan terstruktur per fase (*step-by-step phased execution*). Setiap fase memiliki cakupan yang terukur, pengujian mandiri (*self-contained testing*), dan evaluasi kelayakan sebelum melangkah ke fase berikutnya.
 
 > [!IMPORTANT]
 > **Aturan Eksekusi**:
@@ -41,7 +41,7 @@ graph TD
 - [x] **0.4**: Pembuatan dokumentasi lingkungan awal (`ENVIRONMENT_CHECK.md`, `DEVELOPMENT_SETUP.md`, `TOOLS_AND_SKILLS.md`).
 - [x] **0.5**: Verifikasi kesiapan Context7 MCP.
 - [x] **0.6**: Pembuatan dokumen arsitektur dan spesifikasi teknis (`ARCHITECTURE.md`, `SECURITY_MODEL.md`, `REQUIREMENTS_MAPPING.md`, `IMPLEMENTATION_PLAN.md`).
-- [ ] **0.7**: Penerimaan dan analisis Master Prompt KryptoVault dari pengguna.
+- [ ] **0.7**: Penerimaan dan analisis Master Prompt KryptoInfo dari pengguna.
 
 ---
 
@@ -49,7 +49,7 @@ graph TD
 *Status: Siap Dikerjakan setelah Master Prompt Diterima*
 
 - **1.1. Fondasi Backend (Node.js & Express)**:
-  - Inisialisasi `backend/package.json` dengan dependensi inti: `express`, `dotenv`, `cors`, `helmet`, `morgan`, `mysql2`.
+  - Inisialisasi `backend/package.json` dengan dependensi inti: `express`, `dotenv`, `cors`, `helmet`, `morgan`, dan Prisma ORM v7 (`@prisma/client@7` / driver adapter kompatibel MariaDB).
   - Dependensi pengujian: `jest`, `supertest`.
   - Struktur direktori modular: `src/{controllers,routes,services,middleware,config,crypto}`.
   - Implementasi middleware dasar: error handler terpusat, security headers via Helmet, JSON body parser.
@@ -62,9 +62,11 @@ graph TD
   - Setup styling dasar: Palet warna modern/cyber-security (dark mode, glassmorphism, accent neon/cyan, tipografi profesional).
   - Tampilan dasar aplikasi (Landing/Dashboard shell dengan status koneksi ke Backend).
   - Test dasar komponen UI dengan Vitest / Testing Library.
-- **1.3. Konfigurasi Database (MySQL)**:
-  - Modul koneksi pool database `backend/src/config/db.js` dengan fallback mock/graceful error jika MySQL server lokal belum aktif.
-  - Script inisialisasi skema tabel dasar (`schema.sql`).
+- **1.3. Konfigurasi Database (MariaDB XAMPP + Prisma ORM v7)**:
+  - Konfigurasi `prisma/schema.prisma` dengan `provider = "mysql"` yang menargetkan MariaDB XAMPP (`127.0.0.1:3306`), database `kryptoinfo`, akun bawaan `root` tanpa password.
+  - Modul client database `backend/src/config/db.js` yang menginisialisasi PrismaClient secara aman.
+  - Kredensial dibaca dari `backend/.env` (`DATABASE_URL="mysql://root:@127.0.0.1:3306/kryptoinfo"`).
+  - Prosedur non-destruktif: tidak ada pembuatan user baru/GRANT, dan tidak ada reset atau penghapusan tabel/database yang sudah ada.
 - **1.4. Validasi Fondasi**:
   - Menjalankan backend server dan frontend dev server secara bersamaan.
   - Verifikasi komunikasi API antara Frontend dan Backend.

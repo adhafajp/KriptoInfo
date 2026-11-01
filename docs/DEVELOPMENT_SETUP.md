@@ -1,6 +1,6 @@
-# Development Setup — KryptoVault
+# Development Setup — KryptoInfo
 
-> Panduan untuk menyiapkan lingkungan pengembangan KryptoVault.
+> Panduan untuk menyiapkan lingkungan pengembangan KryptoInfo.
 
 ---
 
@@ -70,36 +70,37 @@ npm install
 npm run dev
 ```
 
-### 4. Setup Database
-```sql
-CREATE DATABASE kryptovault;
--- Jalankan migration script (akan dibuat saat implementasi)
-```
+### 4. Setup Database & Prisma ORM
+- Database `kryptoinfo` dikelola melalui **phpMyAdmin** (`http://localhost/phpmyadmin/`).
+- Database `kryptoinfo` telah dibuat di phpMyAdmin pada port `3306` (host: `127.0.0.1`).
+- Menggunakan akun bawaan XAMPP: username `root`, password kosong (tanpa membuat user baru atau perintah GRANT).
+- Menggunakan **Prisma ORM v7** (kompatibel penuh & stabil untuk MariaDB XAMPP) dengan provider `mysql`.
+- Skema didefinisikan secara deklaratif di `backend/prisma/schema.prisma`.
+- Menjalankan sinkronisasi skema tanpa menghapus atau mereset database yang ada.
 
 ### 5. Verifikasi
 - Backend: `http://localhost:3001/api/health`
 - Frontend: `http://localhost:5173`
+- Database: `http://localhost/phpmyadmin/` (Database: `kryptoinfo`)
 
 ---
 
 ## Environment Variables
 
-File `.env` akan dibuat saat fase implementasi. Contoh isi:
+File `.env` disimpan secara lokal di `backend/.env` (dan telah tercantum di `.gitignore`). Konfigurasi database menggunakan akun `root` bawaan XAMPP tanpa password:
 
 ```env
-# Database
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=
-DB_NAME=kryptovault
-
-# Encryption (JANGAN commit file ini!)
-ENCRYPTION_KEY=<hex-encoded-256-bit-key>
+# Database (XAMPP MariaDB port 3306 - host 127.0.0.1 - user root tanpa password)
+DATABASE_URL="mysql://root:@127.0.0.1:3306/kryptoinfo"
 
 # Server
 PORT=3001
 NODE_ENV=development
+
+# Encryption & Security (backend only - jangan commit ke git)
+# Generated 256-bit key untuk enkripsi AES-256-GCM
+ENCRYPTION_KEY=
+JWT_SECRET=
 ```
 
 > [!CAUTION]

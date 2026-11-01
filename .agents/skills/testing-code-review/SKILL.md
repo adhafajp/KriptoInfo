@@ -1,14 +1,14 @@
 ---
 name: testing-code-review
 description: >
-  Prosedur testing dan code review untuk proyek KryptoVault. Mencakup unit testing,
+  Prosedur testing dan code review untuk proyek KryptoInfo. Mencakup unit testing,
   integration testing, API testing, browser testing, regression testing, dan
   panduan code review.
 ---
 
 # Testing & Code Review
 
-Skill ini digunakan untuk memastikan kualitas kode KryptoVault melalui pengujian menyeluruh dan proses code review yang terstruktur.
+Skill ini digunakan untuk memastikan kualitas kode KryptoInfo melalui pengujian menyeluruh dan proses code review yang terstruktur.
 
 ---
 
