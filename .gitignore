@@ -1,0 +1,15 @@
+# Dependensi & Library
+node_modules/
+
+# File Rahasia & Kunci Akses
+.env
+*.pem
+*.key
+
+# Hasil Compile / Build
+/dist
+/build
+
+# Log & Temporary Files
+*.log
+.DS_Store
