@@ -1,0 +1,26 @@
+{
+  "name": "kryptoinfo-backend",
+  "version": "1.0.0",
+  "description": "KryptoInfo Core REST API & Security Engine",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push"
+  },
+  "dependencies": {
+    "@prisma/adapter-mariadb": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "mariadb": "^3.4.0",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "prisma": "7.10.1"
+  }
+}

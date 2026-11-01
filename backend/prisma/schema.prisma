@@ -1,0 +1,46 @@
+// ==========================================
+// KryptoInfo — Prisma Database Schema
+// Database Engine: MariaDB (XAMPP 10.4.32)
+// Provider: mysql
+// ==========================================
+
+datasource db {
+  provider = "mysql"
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  role      String   @default("OPERATOR")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model SystemAudit {
+  id        String   @id @default(uuid())
+  action    String
+  status    String   @default("INFO")
+  ipAddress String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@map("system_audits")
+}
+
+model VaultMeta {
+  id          String   @id @default(uuid())
+  title       String
+  category    String   // MESSAGE, FILE, STEGO, BLOCKCHAIN
+  storageType String   @default("ENCRYPTED_BLOB")
+  isLocked    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("vault_meta")
+}
