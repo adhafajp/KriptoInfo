@@ -53,6 +53,19 @@ export const blockchainApi = {
 
 export const authApi = {
   me: () => apiRequest('/auth/me'),
+  challenge: (username) => apiRequest('/auth/challenge', { method: 'POST', body: { username } }),
   login: (credentials) => apiRequest('/auth/login', { method: 'POST', body: credentials }),
+  enroll: (data) => apiRequest('/auth/enroll', { 
+    method: 'POST', 
+    body: {
+      username: data.username,
+      password: data.password,
+      publicKey: data.publicKey,
+      faceDescriptor: data.faceDescriptor
+    },
+    headers: {
+      'X-Enrollment-Code': data.enrollmentCode
+    }
+  }),
   logout: () => apiRequest('/auth/logout', { method: 'POST' }),
 };
