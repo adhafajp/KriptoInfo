@@ -346,7 +346,7 @@ Setiap fase harus diverifikasi sebelum melanjutkan ke fase berikutnya.
 
 # 8. TEAM RESPONSIBILITIES
 
-## Adhafa Joan Putranto
+## Adhafa Joan Putranto — 123240069
 
 Primary responsibility:
 - Backend development.

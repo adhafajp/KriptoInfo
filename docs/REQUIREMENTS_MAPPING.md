@@ -1,82 +1,64 @@
 # KryptoInfo — Requirements Mapping & Traceability Matrix
 
-> Dokumen Pemetaan Kebutuhan dan Matriks Ketertelusuran (Traceability Matrix)  
-> Versi: 1.0.0 | Status: Active Reference
+> Versi: 1.1.0 | Status: Active Reference
 
----
+## 1. Technology Constraints
 
-## 1. Pemetaan Batasan Teknologi (Technology Constraints)
-
-| ID Kebutuhan | Deskripsi Kebutuhan | Komponen Target | Implementasi & File Rujukan | Status |
-|---|---|---|---|---|
-| **REQ-TC-01** | Frontend wajib menggunakan **React 18.3.1** | `frontend/` | `package.json` mengunci `"react": "18.3.1"`, `"react-dom": "18.3.1"` | Direncanakan (Phase 1) |
-| **REQ-TC-02** | Backend menggunakan **Node.js dan Express** | `backend/` | `backend/src/server.js`, `backend/package.json` | Direncanakan (Phase 1) |
-| **REQ-TC-03** | Database menggunakan **MariaDB (XAMPP)** via Prisma ORM | `database/` | Prisma ORM v7 (provider `mysql`) di `backend/prisma/schema.prisma` terhubung ke MariaDB XAMPP (127.0.0.1:3306) | Direncanakan (Phase 1) |
-| **REQ-TC-04** | USB Agent berjalan secara terpisah dari Web UI | `usb-agent/` | `usb-agent/src/index.js` (Loopback HTTP/WebSocket service) | Direncanakan (Phase 2) |
-| **REQ-TC-05** | Larangan mengubah tech stack tanpa persetujuan | Seluruh Repo | Diawasi oleh `AGENTS.md` | Aktif |
-
----
-
-## 2. Pemetaan Batasan Keamanan (Security Constraints)
-
-| ID Kebutuhan | Deskripsi Kebutuhan | Implementasi & Kontrol | Verifikasi / Test |
+| ID | Kebutuhan | Implementasi | Status |
 |---|---|---|---|
-| **REQ-SEC-01** | Kunci privat & enkripsi tidak boleh terekspos ke frontend | Kunci enkripsi AES & HMAC hanya berada di server memory / `.env` backend | Code Review & Frontend Snapshot Test |
-| **REQ-SEC-02** | Tidak boleh menyimpan password dalam plaintext | Password di-hash menggunakan Argon2id atau bcrypt dengan salt unik | Unit test `auth.service.test.js` |
-| **REQ-SEC-03** | Tidak boleh mengklaim otentikasi simulasi sebagai nyata | Otentikasi didukung token cryptographic asli; status dev/virtual ditandai eksplisit | Integration test challenge-response |
-| **REQ-SEC-04** | Algoritma enkripsi menggunakan AES-256-GCM terotentikasi | `backend/src/crypto/aes.js` dengan IV 12 bytes & Auth Tag 16 bytes | Unit test `crypto.test.js` (uji tamper detection) |
-| **REQ-SEC-05** | CSPRNG untuk semua nilai acak (IV, nonce, token) | Menggunakan `crypto.randomBytes()` bawaan Node.js | Unit test keunikan dan entropi IV |
-| **REQ-SEC-06** | Keselamatan USB: Larangan format, partisi, atau hapus drive | USB Agent hanya membaca berkas kredensial spesifik (`.kryptoinfo/`) | USB Agent test & safe sandbox check |
+| REQ-TC-01 | Frontend React 18.3.1 | `frontend/` | Phase 1 |
+| REQ-TC-02 | Backend Node.js + Express | `backend/src/` | Phase 1 |
+| REQ-TC-03 | MariaDB XAMPP + Prisma ORM v7 | `backend/prisma/` | Phase 1 |
+| REQ-TC-04 | USB Agent terpisah dari frontend | `usb-agent/` | Phase 2 |
+| REQ-TC-05 | Perubahan tech stack wajib disepakati | `AGENTS.md` | Active |
 
----
+## 2. Security Requirements
 
-## 3. Pemetaan Arsitektur & Modularitas (Architecture Constraints)
-
-| ID Kebutuhan | Deskripsi | Standar Teknis |
+| ID | Persyaratan | Kontrol Implementasi |
 |---|---|---|
-| **REQ-ARC-01** | Pemisahan Frontend, Backend, dan USB Agent | 3 folder terisolasi: `frontend/`, `backend/`, `usb-agent/`. Tidak ada shared code yang melanggar batas eksekusi. |
-| **REQ-ARC-02** | Pemisahan Logika Kriptografi dari Komponen UI | Komponen React hanya menangani render, form input, dan state UI; tidak ada logika cipher/decipher di komponen UI. |
-| **REQ-ARC-03** | Validasi API di Sisi Server | Setiap request yang masuk divalidasi oleh validator middleware (contoh: Joi, Zod, atau express-validator) sebelum mencapai service. |
-| **REQ-ARC-04** | Parameterized Queries / Type-Safe Queries | Semua interaksi database menggunakan Prisma ORM Client (parameter binding otomatis tanpa celah SQL Injection). |
+| REQ-SEC-01 | Kunci privat dan encryption key tidak boleh terekspos ke frontend | Backend-only, environment variables, dan key management |
+| REQ-SEC-02 | Password tidak disimpan plaintext | Argon2id dengan salt unik |
+| REQ-SEC-03 | USB menggunakan autentikasi kriptografis | Ed25519 challenge-response, nonce sekali pakai, dan masa berlaku |
+| REQ-SEC-04 | Enkripsi harus terautentikasi | AES-256-GCM dan ChaCha20-Poly1305 |
+| REQ-SEC-05 | Nilai acak harus aman secara kriptografis | Node.js `crypto.randomBytes()` |
+| REQ-SEC-06 | USB tidak boleh dimodifikasi secara destruktif | Read-only access terhadap kredensial USB |
+| REQ-SEC-07 | Akses data harus terotorisasi | Session validation dan ownership checks |
+| REQ-SEC-08 | Data sensitif tidak boleh masuk audit log | Redaction dan audit logging terkontrol |
+
+## 3. Architecture Requirements
+
+| ID | Persyaratan | Standar |
+|---|---|---|
+| REQ-ARC-01 | Pemisahan frontend, backend, dan USB Agent | Modular architecture |
+| REQ-ARC-02 | Logika kriptografi terpisah dari HTTP | Modul `crypto/` dan `services/` |
+| REQ-ARC-03 | Validasi dilakukan di backend | Validation middleware |
+| REQ-ARC-04 | Database menggunakan Prisma Client | Parameterized ORM queries |
+| REQ-ARC-05 | Error dan respons API konsisten | Global error handler dan API response format |
+
+## 4. Feature Traceability
+
+| Fitur | Backend | Database |
+|---|---|---|
+| Authentication | `/api/auth/*` | `users`, `dongles`, `sessions` |
+| Secure Message | `/api/messages/*` | `vault_meta` |
+| Secure File | `/api/files/*` | `vault_meta` |
+| Steganography | `/api/stego/*` | `vault_meta` |
+| Blockchain | `/api/blockchain/*` | `blockchain_blocks` |
+| Security Activity | `/api/audit/*` | `system_audits` |
+
+*Nama endpoint dan tabel merupakan target implementasi yang harus diselaraskan dengan schema serta API aktual.*
+
+## 5. Verification & Testing
+
+| Modul | Pengujian Utama | Kriteria Lulus |
+|---|---|---|
+| Database | Prisma validation dan integration test | Koneksi, CRUD, dan relasi berjalan |
+| Authentication | Unit dan integration test | Login valid berhasil, kredensial invalid ditolak |
+| Cryptography | Node.js Test Runner | Round-trip berhasil, tampering terdeteksi |
+| API | Supertest | Validasi, authorization, dan HTTP status tepat |
+| USB Agent | Unit dan mock hardware test | Signature valid, replay ditolak, akses non-destruktif |
+| Blockchain | Integrity test | Manipulasi blok terdeteksi |
 
 ---
 
-## 4. Matriks Ketertelusuran Fitur (Feature Traceability Matrix)
-
-```
-[Kebutuhan Bisnis / Fungsional]
-  ├── FN-01: Autentikasi Pengguna & Sesi Terenkripsi
-  │     ├── Backend: /api/auth/register, /api/auth/login
-  │     ├── Database: Tabel `users`
-  │     └── Frontend: Login & Registration View
-  │
-  ├── FN-02: Otentikasi 2-Faktor Berbasis USB Dongle
-  │     ├── Backend: /api/auth/usb-challenge, /api/auth/usb-verify
-  │     ├── USB Agent: Deteksi drive, penandatanganan HMAC nonce
-  │     ├── Database: Tabel `dongles`
-  │     └── Frontend: Dongle Status Modal & 2FA Prompt
-  │
-  ├── FN-03: Manajemen Vault & Enkripsi Berkas (AES-256-GCM)
-  │     ├── Backend: /api/vault/upload, /api/vault/files, /api/vault/:id/download
-  │     ├── Crypto Engine: encryptBuffer(), decryptBuffer()
-  │     ├── Storage: Direktori terisolasi `backend/storage/vault/`
-  │     ├── Database: Tabel `vault_items`
-  │     └── Frontend: Vault Dashboard, File List, Drag & Drop Upload
-  │
-  └── FN-04: Audit Log Forensik & Rekam Integritas
-        ├── Backend: Middleware audit logger
-        ├── Database: Tabel `audit_logs`
-        └── Frontend: Audit Log Viewer
-```
-
----
-
-## 5. Rencana Pengujian & Standar Kelulusan (Verification Protocol)
-
-| Modul | Target Coverage | Alat Pengujian | Kriteria Lulus |
-|---|---|---|---|
-| **Crypto Engine** | 100% path coverage | Jest / Node Test Runner | Plaintext recovery 100%, tamper detection berhasil (auth tag reject), IV unik per call |
-| **API Endpoints** | > 85% coverage | Supertest | Status code tepat (200, 201, 400, 401, 403, 404), payload invalid tertolak |
-| **Database Repository** | > 80% coverage | Integration Test DB | Data konsisten, rollback transaksi berfungsi, tidak ada leak connection pool |
-| **Frontend UI** | > 80% component coverage | Vitest + React Testing Library | Komponen render bersih, error boundary berfungsi, keyboard navigation berjalan |
-| **USB Agent** | > 85% coverage | Unit & Mock Hardware Tests | Challenge signing valid, deteksi non-destructive, graceful failure jika USB dicabut |
+**Catatan:** Dokumen ini menjadi acuan keterlacakan kebutuhan. Status implementasi hanya boleh diperbarui setelah fitur benar-benar selesai dan berhasil diuji.
