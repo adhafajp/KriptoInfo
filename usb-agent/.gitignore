@@ -1,0 +1,4 @@
+node_modules/
+.env
+*.dongle.json
+kryptoinfo-dongle-*.json

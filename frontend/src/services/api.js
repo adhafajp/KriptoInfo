@@ -1,14 +1,22 @@
+
 const API_BASE = '/api';
+const USB_AGENT_BASE = 'http://127.0.0.1:8787';
 
 export async function apiRequest(endpoint, options = {}) {
-  const { method = 'GET', body, isFormData = false } = options;
+  const {
+    method = 'GET',
+    body,
+    isFormData = false,
+    headers = {}
+  } = options;
+
   const config = {
     method,
-    headers: {},
+    headers: { ...headers },
     credentials: 'include'
   };
 
-  if (body) {
+  if (body !== undefined && body !== null) {
     if (isFormData) {
       config.body = body;
     } else {
@@ -18,54 +26,170 @@ export async function apiRequest(endpoint, options = {}) {
   }
 
   const res = await fetch(`${API_BASE}${endpoint}`, config);
-  const data = await res.json().catch(() => ({ success: false, message: 'Respon server tidak valid' }));
+
+  const data = await res.json().catch(() => ({
+    success: false,
+    message: 'Respon server tidak valid'
+  }));
 
   if (!res.ok && !data.message) {
     data.message = `HTTP Error ${res.status}`;
   }
+
   return data;
 }
 
 export const cryptoApi = {
-  encryptMessage: (text, vigenereKey) => apiRequest('/crypto/message/encrypt', { method: 'POST', body: { text, vigenereKey } }),
-  decryptMessage: (payload, vigenereKey) => apiRequest('/crypto/message/decrypt', { method: 'POST', body: { payload, vigenereKey } }),
-  encryptFile: (fileBase64) => apiRequest('/crypto/file/encrypt', { method: 'POST', body: { fileBase64 } }),
-  decryptFile: (payload) => apiRequest('/crypto/file/decrypt', { method: 'POST', body: { payload } }),
+  encryptMessage: (text, vigenereKey) =>
+    apiRequest('/crypto/message/encrypt', {
+      method: 'POST',
+      body: { text, vigenereKey }
+    }),
+
+  decryptMessage: (payload, vigenereKey) =>
+    apiRequest('/crypto/message/decrypt', {
+      method: 'POST',
+      body: { payload, vigenereKey }
+    }),
+
+  encryptFile: (fileBase64) =>
+    apiRequest('/crypto/file/encrypt', {
+      method: 'POST',
+      body: { fileBase64 }
+    }),
+
+  decryptFile: (payload) =>
+    apiRequest('/crypto/file/decrypt', {
+      method: 'POST',
+      body: { payload }
+    }),
 };
 
 export const vaultApi = {
   list: () => apiRequest('/vault'),
+
   get: (id) => apiRequest(`/vault/${id}`),
-  create: (item) => apiRequest('/vault', { method: 'POST', body: item }),
-  delete: (id) => apiRequest(`/vault/${id}`, { method: 'DELETE' }),
+
+  create: (item) =>
+    apiRequest('/vault', {
+      method: 'POST',
+      body: item
+    }),
+
+  delete: (id) =>
+    apiRequest(`/vault/${id}`, {
+      method: 'DELETE'
+    }),
 };
 
 export const stegoApi = {
-  embed: (formData) => apiRequest('/stego/embed', { method: 'POST', body: formData, isFormData: true }),
-  extract: (formData) => apiRequest('/stego/extract', { method: 'POST', body: formData, isFormData: true }),
+  embed: (formData) =>
+    apiRequest('/stego/embed', {
+      method: 'POST',
+      body: formData,
+      isFormData: true
+    }),
+
+  extract: (formData) =>
+    apiRequest('/stego/extract', {
+      method: 'POST',
+      body: formData,
+      isFormData: true
+    }),
 };
 
 export const blockchainApi = {
   list: () => apiRequest('/blockchain'),
-  add: (data) => apiRequest('/blockchain', { method: 'POST', body: { data } }),
+
+  add: (data) =>
+    apiRequest('/blockchain', {
+      method: 'POST',
+      body: { data }
+    }),
+
   verify: () => apiRequest('/blockchain/verify'),
+};
+
+export const auditApi = {
+  list: () => apiRequest('/audit'),
 };
 
 export const authApi = {
   me: () => apiRequest('/auth/me'),
-  challenge: (username) => apiRequest('/auth/challenge', { method: 'POST', body: { username } }),
-  login: (credentials) => apiRequest('/auth/login', { method: 'POST', body: credentials }),
-  enroll: (data) => apiRequest('/auth/enroll', { 
-    method: 'POST', 
-    body: {
-      username: data.username,
-      password: data.password,
-      publicKey: data.publicKey,
-      faceDescriptor: data.faceDescriptor
-    },
-    headers: {
-      'X-Enrollment-Code': data.enrollmentCode
-    }
-  }),
-  logout: () => apiRequest('/auth/logout', { method: 'POST' }),
+
+  challenge: (username) =>
+    apiRequest('/auth/challenge', {
+      method: 'POST',
+      body: { username }
+    }),
+
+  login: (credentials) =>
+    apiRequest('/auth/login', {
+      method: 'POST',
+      body: credentials
+    }),
+
+  enroll: (data) =>
+    apiRequest('/auth/enroll', {
+      method: 'POST',
+      headers: {
+        'X-Enrollment-Code': data.enrollmentCode
+      },
+      body: {
+        username: data.username,
+        password: data.password,
+        publicKey: data.publicKey,
+        faceDescriptor: data.faceDescriptor
+      }
+    }),
+
+  logout: () =>
+    apiRequest('/auth/logout', {
+      method: 'POST'
+    }),
+};
+
+async function usbAgentRequest(endpoint, options = {}) {
+  let response;
+
+  try {
+    response = await fetch(`${USB_AGENT_BASE}${endpoint}`, {
+      ...options,
+      cache: 'no-store',
+      headers: {
+        ...(options.headers || {})
+      }
+    });
+  } catch {
+    throw new Error(
+      'USB Agent tidak dapat dihubungi. Pastikan USB Agent sudah dijalankan.'
+    );
+  }
+
+  const data = await response.json().catch(() => ({
+    success: false,
+    message: 'Respons USB Agent tidak valid.'
+  }));
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || `USB Agent error: ${response.status}`);
+  }
+
+  return data;
+}
+
+export const usbAgentApi = {
+  status: () => usbAgentRequest('/api/status'),
+
+  signChallenge: (dongleId, challengeText) =>
+    usbAgentRequest('/api/sign-challenge', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        dongleId,
+        challengeText
+      })
+    })
 };

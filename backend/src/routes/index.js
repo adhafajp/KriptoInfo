@@ -13,10 +13,18 @@ const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+
+  // Development: 50 request
+  // Production: 10 request
+  limit: process.env.NODE_ENV === 'development' ? 50 : 10,
+
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  message: { success: false, message: 'Terlalu banyak percobaan. Coba lagi beberapa menit.' }
+
+  message: {
+    success: false,
+    message: 'Terlalu banyak percobaan. Coba lagi beberapa menit.'
+  }
 });
 
 router.get('/health', asyncHandler(async (req, res) => {
