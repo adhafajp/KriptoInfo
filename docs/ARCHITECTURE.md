@@ -42,7 +42,7 @@ graph TB
     API --> Crypto
     API --> Auth
     API --> Vault
-    API -- "Connection Pool (mysql2)" --> DB
+    API -- "Connection Pool (@prisma/adapter-mariadb)" --> DB
 ```
 
 ---

@@ -1,32 +1,17 @@
-// ==========================================
-// KryptoInfo — Global Error Handler Middleware
-// ==========================================
-
-import { errorResponse } from '../utils/apiResponse.js';
-
 export function notFoundHandler(req, res) {
-  return errorResponse(res, {
-    message: `Endpoint tidak ditemukan: ${req.method} ${req.originalUrl}`,
-    status: 404,
-    code: 'ROUTE_NOT_FOUND'
+  return res.status(404).json({
+    success: false,
+    code: 'ROUTE_NOT_FOUND',
+    message: `Endpoint tidak ditemukan: ${req.method} ${req.originalUrl}`
   });
 }
 
 export function errorHandler(err, req, res, next) {
-  console.error('[SERVER ERROR]', {
-    method: req.method,
-    url: req.originalUrl,
-    error: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-  });
-
-  const statusCode = err.statusCode || err.status || 500;
-  const message = err.isOperational ? err.message : 'Terjadi kesalahan internal pada server.';
-
-  return errorResponse(res, {
-    message,
-    status: statusCode,
+  console.error('[SERVER ERROR]', err.message);
+  const status = err.statusCode || err.status || 500;
+  return res.status(status).json({
+    success: false,
     code: err.code || 'INTERNAL_ERROR',
-    errors: process.env.NODE_ENV === 'development' ? err.message : undefined
+    message: status >= 500 ? 'Terjadi kesalahan internal pada server.' : err.message
   });
 }
