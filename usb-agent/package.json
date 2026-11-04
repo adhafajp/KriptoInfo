@@ -1,0 +1,18 @@
+{
+  "name": "kryptoinfo-usb-agent",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Windows USB dongle discovery and Ed25519 signing agent for KryptoInfo",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  }
+}

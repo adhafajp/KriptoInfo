@@ -22,6 +22,7 @@ export async function loadFaceModels() {
 }
 
 // Mengaktifkan kamera.
+
 export async function startFaceCamera(videoElement) {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error('Browser tidak mendukung akses kamera.');
@@ -31,18 +32,25 @@ export async function startFaceCamera(videoElement) {
     audio: false,
     video: {
       facingMode: 'user',
-      width: { ideal: 640 },
-      height: { ideal: 480 }
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      frameRate: { ideal: 30 }
     }
   });
 
   videoElement.srcObject = stream;
   await videoElement.play();
 
+  // Periksa resolusi aktual kamera.
+  const track = stream.getVideoTracks()[0];
+
+  console.log('[Camera] Pengaturan kamera:', track.getSettings());
+
   return stream;
 }
 
-// Mendeteksi wajah dan menghasilkan descriptor 128 angka.
+
+// Mendeteksi wajah dan menghasilkan captureFaceDescriptor 128 angka.
 export async function captureFaceDescriptor(videoElement) {
   await loadFaceModels();
 
@@ -70,7 +78,7 @@ export async function captureFaceDescriptor(videoElement) {
     .detectAllFaces(
       videoElement,
       new faceapi.SsdMobilenetv1Options({
-        minConfidence: 0.4,
+        minConfidence: 0.3,
         maxResults: 5
       })
     )

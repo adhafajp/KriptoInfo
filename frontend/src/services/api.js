@@ -1,5 +1,6 @@
 
 const API_BASE = '/api';
+const USB_AGENT_BASE = 'http://127.0.0.1:8787';
 
 export async function apiRequest(endpoint, options = {}) {
   const {
@@ -172,4 +173,49 @@ export const authApi = {
     apiRequest('/auth/logout', {
       method: 'POST'
     }),
+};
+
+async function usbAgentRequest(endpoint, options = {}) {
+  let response;
+
+  try {
+    response = await fetch(`${USB_AGENT_BASE}${endpoint}`, {
+      ...options,
+      cache: 'no-store',
+      headers: {
+        ...(options.headers || {})
+      }
+    });
+  } catch {
+    throw new Error(
+      'USB Agent tidak dapat dihubungi. Pastikan USB Agent sudah dijalankan.'
+    );
+  }
+
+  const data = await response.json().catch(() => ({
+    success: false,
+    message: 'Respons USB Agent tidak valid.'
+  }));
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || `USB Agent error: ${response.status}`);
+  }
+
+  return data;
+}
+
+export const usbAgentApi = {
+  status: () => usbAgentRequest('/api/status'),
+
+  signChallenge: (dongleId, challengeText) =>
+    usbAgentRequest('/api/sign-challenge', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        dongleId,
+        challengeText
+      })
+    })
 };
