@@ -7,8 +7,8 @@ node_modules/
 *.key
 
 # Hasil Compile / Build
-/dist
-/build
+dist/
+build/
 
 # Log & Temporary Files
 *.log

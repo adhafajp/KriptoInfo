@@ -2,10 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { authApi } from '../services/api';
 
-import {
-  generateDongleKeyPair,
-  signChallenge
-} from '../utils/cryptoHelper';
+import { generateDongleKeyPair } from '../utils/cryptoHelper';
 
 import {
   loadFaceModels,
@@ -21,7 +18,8 @@ export default function LoginPage({ onLoginSuccess }) {
   const [password, setPassword] = useState('');
   const [enrollmentCode, setEnrollmentCode] = useState('');
 
-  const [usbPrivateKey, setUsbPrivateKey] = useState('');
+  const [daemonDongle, setDaemonDongle] = useState(null);
+  const [daemonOnline, setDaemonOnline] = useState(false);
 
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -53,6 +51,43 @@ export default function LoginPage({ onLoginSuccess }) {
     return () => {
       stopFaceCamera(streamRef.current);
       streamRef.current = null;
+    };
+  }, []);
+
+  // Deteksi otomatis USB Agent Daemon lokal di port 8787
+  useEffect(() => {
+    let active = true;
+    async function checkDaemon() {
+      try {
+        const res = await fetch('http://127.0.0.1:8787/api/status', {
+          signal: AbortSignal.timeout(1500)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (active) {
+            setDaemonOnline(true);
+            if (data.dongleDetected) {
+              setDaemonDongle(data);
+            } else {
+              setDaemonDongle(null);
+            }
+          }
+          return;
+        }
+      } catch {
+        // Daemon offline
+      }
+      if (active) {
+        setDaemonOnline(false);
+        setDaemonDongle(null);
+      }
+    }
+
+    checkDaemon();
+    const interval = setInterval(checkDaemon, 2500);
+    return () => {
+      active = false;
+      clearInterval(interval);
     };
   }, []);
 
@@ -103,8 +138,8 @@ export default function LoginPage({ onLoginSuccess }) {
       return;
     }
 
-    if (!usbPrivateKey.trim()) {
-      setError('Pilih file USB dongle terlebih dahulu.');
+    if (!daemonDongle) {
+      setError('Colokkan USB dongle (flashdisk) ke komputer terlebih dahulu.');
       return;
     }
 
@@ -125,11 +160,17 @@ export default function LoginPage({ onLoginSuccess }) {
 
       const { challengeId, challenge } = challengeRes.data;
 
-      // Faktor 3: tanda tangani challenge dengan private key dongle.
-      const signature = await signChallenge(
-        usbPrivateKey,
-        challenge
-      );
+      // Faktor 3: tanda tangani challenge via USB Agent daemon lokal.
+      const signRes = await fetch('http://127.0.0.1:8787/api/sign-challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challengeText: challenge })
+      });
+      const signData = await signRes.json();
+      if (!signData.success || !signData.signature) {
+        throw new Error(signData.message || 'Gagal menandatangani challenge dari USB Agent.');
+      }
+      const signature = signData.signature;
 
       // Kirim ketiga faktor ke backend.
       const loginRes = await authApi.login({
@@ -222,11 +263,8 @@ export default function LoginPage({ onLoginSuccess }) {
 
       setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-      // Simpan private key untuk login langsung.
-      setUsbPrivateKey(keyPair.privateKeyBase64);
-
       setMessage(
-        'Enrollment berhasil! Simpan file dongle ke flashdisk. Aktifkan kembali kamera untuk login.'
+        'Enrollment berhasil! Simpan file dongle yang terunduh ke flashdisk. Aktifkan kembali kamera untuk login.'
       );
 
       closeCamera();
@@ -237,43 +275,6 @@ export default function LoginPage({ onLoginSuccess }) {
     } finally {
       setLoading(false);
     }
-  }
-
-  // Membaca file dongle JSON dari flashdisk.
-  function handleFileDongleUpload(e) {
-    setError('');
-    setMessage('');
-
-    const file = e.target.files?.[0];
-
-    if (!file) return;
-
-    const reader = new FileReader();
-
-    reader.onload = (event) => {
-      try {
-        const json = JSON.parse(event.target.result);
-
-        if (
-          typeof json.privateKeyPkcs8 !== 'string' ||
-          !json.privateKeyPkcs8
-        ) {
-          throw new Error('Private key tidak ditemukan.');
-        }
-
-        setUsbPrivateKey(json.privateKeyPkcs8);
-        setMessage('File USB dongle berhasil dimuat.');
-      } catch (err) {
-        setUsbPrivateKey('');
-        setError(`File dongle tidak valid: ${err.message}`);
-      }
-    };
-
-    reader.onerror = () => {
-      setError('Gagal membaca file dongle.');
-    };
-
-    reader.readAsText(file);
   }
 
   function changeMode(nextMode) {
@@ -431,20 +432,34 @@ export default function LoginPage({ onLoginSuccess }) {
 
               <div>
                 <label className="block text-sm text-dark-300 mb-1">
-                  USB Dongle Key (.json)
+                  USB Dongle (Faktor Kriptografi Ed25519)
                 </label>
 
-                <input
-                  type="file"
-                  accept=".json,application/json"
-                  onChange={handleFileDongleUpload}
-                  className="w-full text-xs text-dark-300 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-dark-700 file:text-white hover:file:bg-dark-600"
-                />
-
-                {usbPrivateKey && (
-                  <p className="text-xs text-green-400 mt-1">
-                    ✓ Kunci USB siap digunakan
-                  </p>
+                {daemonDongle ? (
+                  <div className="p-3 bg-green-950/40 border border-green-700 rounded text-xs space-y-1">
+                    <div className="flex items-center gap-2 text-green-300 font-semibold">
+                      <span>✓</span>
+                      <span>USB Dongle Terdeteksi Otomatis</span>
+                    </div>
+                    <p className="text-dark-300 font-mono truncate">
+                      File: {daemonDongle.fileName}
+                    </p>
+                    <p className="text-dark-400 text-[11px] truncate">
+                      Lokasi: {daemonDongle.filePath}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-yellow-950/40 border border-yellow-700/60 rounded text-xs space-y-1">
+                    <div className="flex items-center gap-2 text-yellow-300 font-semibold">
+                      <span className="animate-pulse">●</span>
+                      <span>Menunggu USB Dongle...</span>
+                    </div>
+                    <p className="text-dark-300 text-[11px]">
+                      {daemonOnline
+                        ? 'Colokkan flashdisk berisi file kunci dongle (.json).'
+                        : 'USB Agent belum aktif di background (jalankan `node usb-agent/server.js`).'}
+                    </p>
+                  </div>
                 )}
               </div>
 
@@ -534,7 +549,7 @@ export default function LoginPage({ onLoginSuccess }) {
 
         <div className="mt-6 text-center text-xs text-dark-500">
           <p>KryptoInfo v1.0 — Proyek Akhir Kriptografi</p>
-          <p className="mt-1">UPN "Veteran" Yogyakarta</p>
+          <p className="mt-1">UPN &quot;Veteran&quot; Yogyakarta</p>
         </div>
 
       </div>

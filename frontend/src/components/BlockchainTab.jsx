@@ -73,9 +73,9 @@ export default function BlockchainTab() {
       )}
 
       {verification && (
-        <div className={`p-4 rounded border ${verification.isValid ? 'bg-green-950/40 border-green-700 text-green-300' : 'bg-red-950/40 border-red-700 text-red-300'}`}>
+        <div className={`p-4 rounded border ${(verification.valid ?? verification.isValid) ? 'bg-green-950/40 border-green-700 text-green-300' : 'bg-red-950/40 border-red-700 text-red-300'}`}>
           <h4 className="font-semibold mb-1">
-            {verification.isValid ? '✓ Rantai Valid' : '✗ Rantai Tidak Valid / Dirusak'}
+            {(verification.valid ?? verification.isValid) ? '✓ Rantai Valid' : '✗ Rantai Tidak Valid / Dirusak'}
           </h4>
           <p className="text-xs">
             {verification.message || `Total blok diverifikasi: ${verification.totalBlocks || blocks.length}`}
@@ -107,17 +107,17 @@ export default function BlockchainTab() {
         {blocks.map((b, idx) => (
           <div key={b.id || idx} className="p-4 bg-dark-800 border border-dark-700 rounded space-y-2">
             <div className="flex justify-between items-center">
-              <span className="font-bold text-primary-400">Blok #{b.index !== undefined ? b.index : idx}</span>
+              <span className="font-bold text-primary-400">Blok #{b.blockIndex !== undefined ? b.blockIndex : (b.index ?? idx)}</span>
               <span className="text-xs text-dark-400">{new Date(b.timestamp || b.createdAt).toLocaleString()}</span>
             </div>
             <div>
-              <p className="text-xs text-dark-400">Data:</p>
-              <p className="text-sm text-white font-mono bg-dark-900 p-2 rounded">{b.data}</p>
+              <p className="text-xs text-dark-400">Asset / Metadata:</p>
+              <p className="text-sm text-white font-mono bg-dark-900 p-2 rounded">{b.metadata || b.assetId || b.data}</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono">
               <div>
                 <span className="text-dark-400">Hash: </span>
-                <span className="text-dark-300 truncate inline-block w-48 align-bottom">{b.hash}</span>
+                <span className="text-dark-300 truncate inline-block w-48 align-bottom">{b.currentHash || b.hash}</span>
               </div>
               <div>
                 <span className="text-dark-400">Prev Hash: </span>

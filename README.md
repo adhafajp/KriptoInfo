@@ -197,12 +197,14 @@ Jangan menjalankan migrasi database sebelum memeriksa dampaknya terhadap databas
 Proyek dikembangkan secara bertahap:
 
 - [x] Perencanaan dan dokumentasi awal
-- [ ] PHASE 1 — Project Foundation
-- [ ] PHASE 2 — Three-Layer Authentication
-- [ ] PHASE 3 — Cryptography Modules
-- [ ] PHASE 4 — Image Steganography
-- [ ] PHASE 5 — Blockchain Asset
-- [ ] PHASE 6 — Security Testing and Documentation
+- [x] PHASE 1 — Project Foundation (Backend + Frontend setup, Prisma + MariaDB)
+- [x] PHASE 2 — Three-Layer Authentication (Password + USB Ed25519 + Face biometric)
+- [x] PHASE 3 — Cryptography Modules (Vigenere → AES-256-GCM → ChaCha20)
+- [x] PHASE 4 — Image Steganography (LSB PNG embed/extract dengan AES)
+- [x] PHASE 5 — Blockchain Asset (SHA-256 immutable chain + integrity verification)
+- [ ] PHASE 6 — Security Testing and Documentation (⏳ Manual testing in progress)
+
+**Update 4 Nov 2026**: Semua fitur backend + frontend complete. Bug stego API diperbaiki. Lihat [TEST_PLAN.md](TEST_PLAN.md) untuk checklist pengujian lengkap.
 
 Checklist akan diperbarui berdasarkan hasil implementasi dan pengujian yang benar-benar dilakukan.
 

@@ -59,11 +59,12 @@ function extractBytesFromPng(png) {
 
 export function embedMessage(req, res, next) {
   try {
-    if (!req.file || typeof req.body.text !== 'string' || !req.body.text.length) {
-      return res.status(400).json({ success: false, message: 'File PNG dan text wajib diisi.' });
+    const message = req.body.message || req.body.text;
+    if (!req.file || typeof message !== 'string' || !message.length) {
+      return res.status(400).json({ success: false, message: 'File PNG dan message wajib diisi.' });
     }
     const png = PNG.sync.read(req.file.buffer);
-    const encrypted = aesEncrypt(Buffer.from(req.body.text, 'utf8'));
+    const encrypted = aesEncrypt(Buffer.from(message, 'utf8'));
     const payload = Buffer.from(JSON.stringify(encrypted), 'utf8');
     embedBytesInPng(png, payload);
     const output = PNG.sync.write(png);

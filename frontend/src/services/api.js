@@ -82,12 +82,24 @@ export const vaultApi = {
 };
 
 export const stegoApi = {
-  embed: (formData) =>
-    apiRequest('/stego/embed', {
-      method: 'POST',
-      body: formData,
-      isFormData: true
-    }),
+  embed: async (formData) => {
+    try {
+      const res = await fetch(`${API_BASE}/stego/embed`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: `HTTP Error ${res.status}` }));
+        return { success: false, message: err.message };
+      }
+      const blob = await res.blob();
+      const imageUrl = URL.createObjectURL(blob);
+      return { success: true, data: { imageUrl, filename: 'kryptoinfo-stego.png' } };
+    } catch (err) {
+      return { success: false, message: err.message || 'Gagal memproses gambar' };
+    }
+  },
 
   extract: (formData) =>
     apiRequest('/stego/extract', {
@@ -100,11 +112,25 @@ export const stegoApi = {
 export const blockchainApi = {
   list: () => apiRequest('/blockchain'),
 
-  add: (data) =>
-    apiRequest('/blockchain', {
+  add: async (data) => {
+    let payload = data;
+    if (typeof data === 'string') {
+      const msgUint8 = new TextEncoder().encode(data);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgUint8);
+      const assetHash = Array.from(new Uint8Array(hashBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+      payload = {
+        assetId: `asset-${Date.now()}`,
+        assetHash,
+        metadata: data
+      };
+    }
+    return apiRequest('/blockchain', {
       method: 'POST',
-      body: { data }
-    }),
+      body: payload
+    });
+  },
 
   verify: () => apiRequest('/blockchain/verify'),
 };

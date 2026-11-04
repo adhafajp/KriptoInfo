@@ -137,7 +137,7 @@ export default function StegoTab() {
         <div className="p-4 bg-dark-800 border border-dark-700 rounded">
           <h3 className="text-primary-400 font-semibold mb-2">Pesan Ditemukan:</h3>
           <div className="px-3 py-2 bg-dark-900 text-green-300 rounded border border-dark-700">
-            {result.message || '(tidak ada pesan tersembunyi)'}
+            {result.text || result.message || '(tidak ada pesan tersembunyi)'}
           </div>
         </div>
       )}
