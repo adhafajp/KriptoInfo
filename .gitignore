@@ -13,3 +13,5 @@ build/
 # Log & Temporary Files
 *.log
 .DS_Store
+.vite/
+frontend/.vite/
