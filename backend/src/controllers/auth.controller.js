@@ -15,8 +15,8 @@ function validFaceDescriptor(value) {
 }
 
 function passwordProblem(password, username) {
-  if (typeof password !== 'string' || password.length < 12 || password.length > 128) {
-    return 'Password harus memiliki panjang 12–128 karakter.';
+  if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+    return 'Password harus memiliki panjang 8–128 karakter.';
   }
   if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) ||
       !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
