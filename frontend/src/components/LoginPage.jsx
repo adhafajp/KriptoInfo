@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { authApi } from '../services/api';
 
@@ -65,12 +66,8 @@ export default function LoginPage({ onLoginSuccess }) {
           const data = await res.json();
           if (active) {
             setDaemonOnline(true);
-            const foundDongle = data.dongleDetected ? data : (data.detected && data.dongles?.[0]);
-            if (foundDongle) {
-              setDaemonDongle(foundDongle);
-            } else {
-              setDaemonDongle(null);
-            }
+            const found = data.dongleDetected ? data : (data.detected ? (data.dongles?.[0] || data) : null);
+            setDaemonDongle(found);
           }
           return;
         }
@@ -166,7 +163,7 @@ export default function LoginPage({ onLoginSuccess }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           challengeText: challenge,
-          dongleId: daemonDongle.id
+          dongleId: daemonDongle?.id
         })
       });
       const signData = await signRes.json();
@@ -373,6 +370,7 @@ export default function LoginPage({ onLoginSuccess }) {
 
             </div>
 
+
             <p className="text-xs text-dark-300 mt-2">
               Status: {faceStatus}
             </p>
@@ -459,7 +457,7 @@ export default function LoginPage({ onLoginSuccess }) {
                     <p className="text-dark-300 text-[11px]">
                       {daemonOnline
                         ? 'Colokkan flashdisk berisi file kunci dongle (.json).'
-                        : 'USB Agent belum aktif di background (jalankan `node usb-agent/src/server.js`).'}
+                        : 'USB Agent belum aktif di background (jalankan `node usb-agent/server.js`).'}
                     </p>
                   </div>
                 )}
