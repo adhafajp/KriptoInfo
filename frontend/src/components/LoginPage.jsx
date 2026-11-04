@@ -302,183 +302,208 @@ const [scanning, setScanning] = useState(false);
   }
 
   return (
-    <div className="min-h-screen bg-dark-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-[#07090e] text-slate-100 flex items-center justify-center p-4 relative overflow-hidden selection:bg-cyan-500/30 selection:text-cyan-200">
+      {/* Background ambient mesh glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-gradient-to-tr from-cyan-600/15 via-blue-600/10 to-indigo-600/15 blur-[140px] pointer-events-none -z-10" />
 
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-primary-400 mb-2">
+      <div className="w-full max-w-lg relative z-10 py-6">
+
+        {/* Brand Header */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-[1.5px] shadow-xl shadow-cyan-500/25 mb-4">
+            <div className="w-full h-full bg-[#0a0f1d] rounded-[14px] flex items-center justify-center">
+              <svg className="w-7 h-7 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+          </div>
+
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
             KryptoInfo
           </h1>
 
-          <p className="text-dark-300">
-            Three-Layer Secure Digital Vault
+          <p className="text-xs sm:text-sm text-slate-400 mt-1 font-medium">
+            Next-Gen 3-Layer Security Digital Vault
           </p>
         </div>
 
-        <div className="bg-dark-900 border border-dark-800 rounded-lg p-6">
+        {/* Main Card */}
+        <div className="glass-panel rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
 
-          {/* Pilihan Login atau Enrollment */}
-          <div className="flex gap-2 mb-6">
+          {/* Mode Switcher */}
+          <div className="p-1 bg-[#0a0f1d] border border-white/[0.08] rounded-xl flex gap-1 mb-6">
             <button
               type="button"
               onClick={() => changeMode('login')}
-              className={`flex-1 py-2 rounded ${
+              className={`flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
                 mode === 'login'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-dark-800 text-dark-300'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Login
+              Sign In
             </button>
 
             <button
               type="button"
               onClick={() => changeMode('enroll')}
-              className={`flex-1 py-2 rounded ${
+              className={`flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
                 mode === 'enroll'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-dark-800 text-dark-300'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Daftar Baru
+              Enroll Device
             </button>
           </div>
 
           {/* Pesan error */}
           {error && (
-            <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded text-red-300 text-sm">
-              {error}
+            <div className="mb-5 p-3.5 bg-red-950/40 border border-red-500/30 rounded-xl text-red-300 text-xs sm:text-sm flex items-start gap-2.5">
+              <span className="text-red-400 mt-0.5">⚠️</span>
+              <span className="flex-1 leading-relaxed">{error}</span>
             </div>
           )}
 
           {/* Pesan berhasil */}
           {message && (
-            <div className="mb-4 p-3 bg-green-900/30 border border-green-700 rounded text-green-300 text-sm">
-              {message}
+            <div className="mb-5 p-3.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs sm:text-sm flex items-start gap-2.5">
+              <span className="text-emerald-400 mt-0.5">✓</span>
+              <span className="flex-1 leading-relaxed">{message}</span>
             </div>
           )}
 
           {/* Panel kamera untuk login dan enrollment */}
-          <div className="mb-5 p-3 bg-dark-800 rounded border border-dark-700">
+          <div className="mb-6 p-4 rounded-2xl bg-[#0a0f1d] border border-white/[0.08]">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${cameraActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
+                Biometric Face Verification
+              </span>
+              <span className="text-[11px] text-cyan-400 font-mono truncate max-w-[200px]">
+                {faceStatus}
+              </span>
+            </div>
 
-            <h3 className="text-white font-medium mb-2">
-              Face Recognition
-            </h3>
+            <div className="relative w-full h-52 rounded-xl bg-black overflow-hidden border border-white/10 group">
+              <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-cyan-400/80 pointer-events-none z-20" />
+              <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-cyan-400/80 pointer-events-none z-20" />
+              <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-cyan-400/80 pointer-events-none z-20" />
+              <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-cyan-400/80 pointer-events-none z-20" />
 
-            <div className="relative w-full h-48 rounded bg-black overflow-hidden">
+              {cameraActive && (
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-500/10 to-transparent animate-scanline pointer-events-none z-10" />
+              )}
 
-              {/* Elemen video selalu sama, tidak diganti React */}
               <video
                 ref={videoRef}
                 autoPlay
                 muted
                 playsInline
-                className={`w-full h-full object-cover ${
+                className={`w-full h-full object-cover transition-opacity duration-300 ${
                   cameraActive ? 'opacity-100' : 'opacity-0'
                 }`}
               />
 
-              {/* Tampilan ketika kamera belum aktif */}
               {!cameraActive && (
-                <div className="absolute inset-0 flex items-center justify-center text-dark-400 text-sm text-center p-4">
-                  Kamera belum aktif. Tekan tombol Aktifkan Kamera.
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 text-xs text-center p-4">
+                  <svg className="w-8 h-8 text-slate-600 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <span>Kamera standby. Aktifkan untuk memindai wajah.</span>
                 </div>
               )}
-
             </div>
-
-
-            <p className="text-xs text-dark-300 mt-2">
-              Status: {faceStatus}
-            </p>
 
             <div className="flex gap-2 mt-3">
               <button
                 type="button"
                 onClick={handleStartCamera}
                 disabled={loading || cameraActive}
-                className="flex-1 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-dark-700 text-white rounded text-sm"
+                className="flex-1 py-2 px-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 disabled:opacity-40 text-white rounded-xl text-xs font-semibold shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-1.5"
               >
-                Aktifkan Kamera
+                <span>●</span>
+                <span>Aktifkan Kamera</span>
               </button>
 
               <button
                 type="button"
                 onClick={closeCamera}
                 disabled={loading || !cameraActive}
-                className="flex-1 py-2 bg-dark-700 hover:bg-dark-600 disabled:opacity-50 text-white rounded text-sm"
+                className="py-2 px-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 rounded-xl text-xs font-medium border border-white/[0.06] transition-all"
               >
-                Matikan Kamera
+                Matikan
               </button>
             </div>
           </div>
 
           {mode === 'login' ? (
-
             <form onSubmit={handleLogin} className="space-y-4">
-
               <div>
-                <label className="block text-sm text-dark-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Username
                 </label>
-
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-3 py-2 bg-dark-800 text-white rounded border border-dark-700 focus:border-primary-500 focus:outline-none"
+                  className="w-full px-3.5 py-2.5 bg-[#0a0f1d] text-slate-100 rounded-xl border border-white/10 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none text-sm transition-all placeholder:text-slate-600"
                   placeholder="Masukkan username..."
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-dark-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Master Password
                 </label>
-
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 bg-dark-800 text-white rounded border border-dark-700 focus:border-primary-500 focus:outline-none"
+                  className="w-full px-3.5 py-2.5 bg-[#0a0f1d] text-slate-100 rounded-xl border border-white/10 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none text-sm transition-all placeholder:text-slate-600"
                   placeholder="Masukkan password..."
                   required
                 />
               </div>
 
-              
-              <div>
-                <label className="block text-sm text-dark-300 mb-1">
-                  USB Dongle
-                </label>
+              {/* USB Dongle Section */}
+              <div className="p-3.5 rounded-xl bg-[#0a0f1d] border border-white/[0.08] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    Hardware USB Dongle
+                  </label>
+                  <span className="text-[11px] text-slate-400 font-mono">Ed25519 Token</span>
+                </div>
 
                 <button
                   type="button"
                   onClick={handleScanDongles}
                   disabled={scanning || loading}
-                  className="w-full py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-dark-700 text-white rounded text-sm"
+                  className="w-full py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-cyan-300 border border-cyan-500/25 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2"
                 >
-                  {scanning ? 'Mencari dongle...' : 'Cari USB Dongle'}
+                  <span className={scanning ? 'animate-spin' : ''}>⚡</span>
+                  <span>{scanning ? 'Mencari dongle di flashdisk...' : 'Cari USB Dongle'}</span>
                 </button>
 
-                <p className="text-xs text-dark-300 mt-2">
-                  Status: {dongleStatus}
+                <p className="text-[11px] text-slate-400">
+                  Status: <span className="text-slate-300">{dongleStatus}</span>
                 </p>
 
                 {dongles.length > 0 && (
-                  <div className="mt-3">
-                    <label className="block text-sm text-dark-300 mb-1">
-                      Pilih Dongle
+                  <div className="pt-1">
+                    <label className="block text-[11px] text-slate-400 mb-1">
+                      Pilih Kunci Dongle Aktif:
                     </label>
-
                     <select
                       value={selectedDongleId}
                       onChange={(e) => setSelectedDongleId(e.target.value)}
-                      className="w-full px-3 py-2 bg-dark-800 text-white rounded border border-dark-700"
+                      className="w-full px-3 py-2 bg-slate-900 text-slate-200 rounded-lg border border-white/10 text-xs focus:outline-none focus:border-cyan-500"
                     >
                       <option value="">Pilih dongle...</option>
-
                       {dongles.map(dongle => (
                         <option key={dongle.id} value={dongle.id}>
                           {dongle.username} — {dongle.fileName} ({dongle.drive})
@@ -489,100 +514,92 @@ const [scanning, setScanning] = useState(false);
                 )}
 
                 {selectedDongleId && (
-                  <p className="text-xs text-green-400 mt-2">
-                    ✓ Dongle berhasil dipilih.
-                  </p>
+                  <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center gap-1.5">
+                    <span>✓</span>
+                    <span>Kunci dongle siap digunakan untuk menandatangani sesi.</span>
+                  </div>
                 )}
               </div>
 
-
+              {/* Submit CTA */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-dark-700 text-white rounded font-medium"
+                className="w-full py-3 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 disabled:opacity-40 text-white rounded-xl text-sm font-bold shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.99] mt-2"
               >
-                {loading ? 'Memverifikasi tiga faktor...' : 'Login'}
+                {loading ? 'Memverifikasi Tiga Faktor...' : 'Authenticate & Unlock Vault'}
               </button>
 
-              <p className="text-xs text-dark-400 text-center mt-4">
-                Password + USB Ed25519 + Face Recognition
+              <p className="text-[11px] text-slate-500 text-center pt-2">
+                Protected by Password + Hardware Ed25519 + Biometric Face ID
               </p>
-
             </form>
-
           ) : (
-
             <form onSubmit={handleEnroll} className="space-y-4">
-
               <div>
-                <label className="block text-sm text-dark-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Username
                 </label>
-
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-3 py-2 bg-dark-800 text-white rounded border border-dark-700 focus:border-primary-500 focus:outline-none"
+                  className="w-full px-3.5 py-2.5 bg-[#0a0f1d] text-slate-100 rounded-xl border border-white/10 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none text-sm transition-all placeholder:text-slate-600"
                   placeholder="Pilih username unik..."
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-dark-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Master Password
                 </label>
-
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 bg-dark-800 text-white rounded border border-dark-700 focus:border-primary-500 focus:outline-none"
-                  placeholder="Buat password kuat..."
+                  className="w-full px-3.5 py-2.5 bg-[#0a0f1d] text-slate-100 rounded-xl border border-white/10 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none text-sm transition-all placeholder:text-slate-600"
+                  placeholder="Minimal 8 karakter (huruf, angka, simbol)..."
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-dark-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Kode Enrollment
                 </label>
-
                 <input
                   type="password"
                   value={enrollmentCode}
                   onChange={(e) => setEnrollmentCode(e.target.value)}
-                  className="w-full px-3 py-2 bg-dark-800 text-white rounded border border-dark-700 focus:border-primary-500 focus:outline-none"
-                  placeholder="Masukkan kode pendaftaran..."
+                  className="w-full px-3.5 py-2.5 bg-[#0a0f1d] text-slate-100 rounded-xl border border-white/10 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none text-sm transition-all placeholder:text-slate-600"
+                  placeholder="Masukkan kode rahasia admin..."
                   required
                 />
-
-                <p className="text-xs text-dark-400 mt-1">
-                  Gunakan kode enrollment dari konfigurasi backend.
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Default dev code: <span className="font-mono text-cyan-400">kryptoinfo-phase1-2026</span>
                 </p>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-dark-700 text-white rounded font-medium"
+                className="w-full py-3 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 disabled:opacity-40 text-white rounded-xl text-sm font-bold shadow-lg shadow-cyan-500/25 transition-all active:scale-[0.99] mt-2"
               >
-                {loading ? 'Mendaftarkan...' : 'Daftar Sekarang'}
+                {loading ? 'Mendaftarkan akun & membuat kunci...' : 'Daftar & Unduh Kunci Dongle'}
               </button>
 
-              <p className="text-xs text-dark-400 text-center mt-4">
-                Pendaftaran membutuhkan kamera, Master Password, dan pembuatan USB Dongle.
+              <p className="text-[11px] text-slate-500 text-center pt-2">
+                Pendaftaran akan otomatis mengunduh kunci kriptografi Ed25519 Anda.
               </p>
-
             </form>
           )}
 
         </div>
 
-        <div className="mt-6 text-center text-xs text-dark-500">
-          <p>KryptoInfo v1.0 — Proyek Akhir Kriptografi</p>
-          <p className="mt-1">UPN &quot;Veteran&quot; Yogyakarta</p>
+        <div className="mt-8 text-center text-xs text-slate-500 space-y-1">
+          <p>KryptoInfo Vault Security • Tugas Praktikum Kriptografi</p>
+          <p>UPN &quot;Veteran&quot; Yogyakarta</p>
         </div>
 
       </div>

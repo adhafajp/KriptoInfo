@@ -9,6 +9,7 @@ node_modules/
 # Hasil Compile / Build
 dist/
 build/
+.vite/
 
 # Log & Temporary Files
 *.log
