@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import MessageTab from './components/MessageTab';
 import VaultTab from './components/VaultTab';
 import StegoTab from './components/StegoTab';
