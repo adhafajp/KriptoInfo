@@ -1,10 +1,7 @@
-
 import React, { useEffect, useRef, useState } from 'react';
-import { authApi, usbAgentApi } from '../services/api';
+import { authApi } from '../services/api';
 
-import {
-  generateDongleKeyPair
-} from '../utils/cryptoHelper';
+import { generateDongleKeyPair } from '../utils/cryptoHelper';
 
 import {
   loadFaceModels,
@@ -20,12 +17,8 @@ export default function LoginPage({ onLoginSuccess }) {
   const [password, setPassword] = useState('');
   const [enrollmentCode, setEnrollmentCode] = useState('');
 
-  const [dongles, setDongles] = useState([]);
-  const [selectedDongleId, setSelectedDongleId] = useState('');
-  const [dongleStatus, setDongleStatus] = useState(
-    'USB Agent belum diperiksa.'
-  );
-const [scanning, setScanning] = useState(false);
+  const [daemonDongle, setDaemonDongle] = useState(null);
+  const [daemonOnline, setDaemonOnline] = useState(false);
 
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -57,6 +50,44 @@ const [scanning, setScanning] = useState(false);
     return () => {
       stopFaceCamera(streamRef.current);
       streamRef.current = null;
+    };
+  }, []);
+
+  // Deteksi otomatis USB Agent Daemon lokal di port 8787
+  useEffect(() => {
+    let active = true;
+    async function checkDaemon() {
+      try {
+        const res = await fetch('http://127.0.0.1:8787/api/status', {
+          signal: AbortSignal.timeout(1500)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (active) {
+            setDaemonOnline(true);
+            const foundDongle = data.dongleDetected ? data : (data.detected && data.dongles?.[0]);
+            if (foundDongle) {
+              setDaemonDongle(foundDongle);
+            } else {
+              setDaemonDongle(null);
+            }
+          }
+          return;
+        }
+      } catch {
+        // Daemon offline
+      }
+      if (active) {
+        setDaemonOnline(false);
+        setDaemonDongle(null);
+      }
+    }
+
+    checkDaemon();
+    const interval = setInterval(checkDaemon, 2500);
+    return () => {
+      active = false;
+      clearInterval(interval);
     };
   }, []);
 
@@ -95,55 +126,6 @@ const [scanning, setScanning] = useState(false);
     return descriptor;
   }
 
-  
-  async function handleScanDongles() {
-    setScanning(true);
-    setError('');
-    setDongleStatus('Sedang mencari USB dongle...');
-
-    try {
-      const result = await usbAgentApi.status();
-
-      const found = Array.isArray(result.dongles)
-        ? result.dongles
-        : [];
-
-      setDongles(found);
-
-      // Jika hanya ada satu dongle, pilih otomatis.
-      if (found.length === 1) {
-        setSelectedDongleId(found[0].id);
-      } else {
-        // Jika banyak, coba cocokkan dengan username.
-        const matching = found.filter(
-          item =>
-            item.username?.toLowerCase() === username.trim().toLowerCase()
-        );
-
-        setSelectedDongleId(
-          matching.length === 1 ? matching[0].id : ''
-        );
-      }
-
-      if (found.length === 0) {
-        setDongleStatus('Tidak ada USB dongle valid yang ditemukan.');
-      } else {
-        setDongleStatus(
-          `${found.length} USB dongle berhasil ditemukan.`
-        );
-      }
-
-    } catch (err) {
-      setDongles([]);
-      setSelectedDongleId('');
-      setDongleStatus('USB Agent tidak tersedia.');
-      setError(err.message);
-    } finally {
-      setScanning(false);
-    }
-  }
-
-
   // Proses login: wajah + dongle + password.
   async function handleLogin(e) {
     e.preventDefault();
@@ -156,18 +138,18 @@ const [scanning, setScanning] = useState(false);
       return;
     }
 
-    if (!selectedDongleId) {
-      setError('Cari dan pilih USB dongle terlebih dahulu.');
+    if (!daemonDongle) {
+      setError('Colokkan USB dongle (flashdisk) ke komputer terlebih dahulu.');
       return;
     }
 
     setLoading(true);
 
     try {
-      // Faktor 1: Face Recognition.
+      // Faktor 1: ambil descriptor wajah dari kamera.
       const faceDescriptor = await getCurrentFaceDescriptor();
 
-      // Faktor 2: Minta challenge dari backend.
+      // Faktor 2: minta challenge dari backend.
       const challengeRes = await authApi.challenge(username.trim());
 
       if (!challengeRes.success) {
@@ -178,22 +160,27 @@ const [scanning, setScanning] = useState(false);
 
       const { challengeId, challenge } = challengeRes.data;
 
-      // Faktor USB: minta USB Agent menandatangani challenge.
-      const signRes = await usbAgentApi.signChallenge(
-        selectedDongleId,
-        challenge
-      );
-
-      if (!signRes.signature) {
-        throw new Error('USB Agent tidak menghasilkan signature.');
+      // Faktor 3: tanda tangani challenge via USB Agent daemon lokal.
+      const signRes = await fetch('http://127.0.0.1:8787/api/sign-challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          challengeText: challenge,
+          dongleId: daemonDongle.id
+        })
+      });
+      const signData = await signRes.json();
+      if (!signData.success || !signData.signature) {
+        throw new Error(signData.message || 'Gagal menandatangani challenge dari USB Agent.');
       }
+      const signature = signData.signature;
 
-      // Kirim ketiga faktor kepada backend.
+      // Kirim ketiga faktor ke backend.
       const loginRes = await authApi.login({
         username: username.trim(),
         password,
         challengeId,
-        signature: signRes.signature,
+        signature,
         faceDescriptor
       });
 
@@ -221,7 +208,6 @@ const [scanning, setScanning] = useState(false);
       setLoading(false);
     }
   }
-
 
   // Proses enrollment: mengambil wajah asli dan mendaftarkan public key.
   async function handleEnroll(e) {
@@ -281,7 +267,7 @@ const [scanning, setScanning] = useState(false);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
 
       setMessage(
-        'Enrollment berhasil! Pindahkan file dongle yang diunduh ke folder KryptoInfoDongle pada flashdisk.'
+        'Enrollment berhasil! Simpan file dongle yang terunduh ke flashdisk. Aktifkan kembali kamera untuk login.'
       );
 
       closeCamera();
@@ -387,7 +373,6 @@ const [scanning, setScanning] = useState(false);
 
             </div>
 
-
             <p className="text-xs text-dark-300 mt-2">
               Status: {faceStatus}
             </p>
@@ -447,54 +432,38 @@ const [scanning, setScanning] = useState(false);
                 />
               </div>
 
-              
               <div>
                 <label className="block text-sm text-dark-300 mb-1">
-                  USB Dongle
+                  USB Dongle (Faktor Kriptografi Ed25519)
                 </label>
 
-                <button
-                  type="button"
-                  onClick={handleScanDongles}
-                  disabled={scanning || loading}
-                  className="w-full py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-dark-700 text-white rounded text-sm"
-                >
-                  {scanning ? 'Mencari dongle...' : 'Cari USB Dongle'}
-                </button>
-
-                <p className="text-xs text-dark-300 mt-2">
-                  Status: {dongleStatus}
-                </p>
-
-                {dongles.length > 0 && (
-                  <div className="mt-3">
-                    <label className="block text-sm text-dark-300 mb-1">
-                      Pilih Dongle
-                    </label>
-
-                    <select
-                      value={selectedDongleId}
-                      onChange={(e) => setSelectedDongleId(e.target.value)}
-                      className="w-full px-3 py-2 bg-dark-800 text-white rounded border border-dark-700"
-                    >
-                      <option value="">Pilih dongle...</option>
-
-                      {dongles.map(dongle => (
-                        <option key={dongle.id} value={dongle.id}>
-                          {dongle.username} — {dongle.fileName} ({dongle.drive})
-                        </option>
-                      ))}
-                    </select>
+                {daemonDongle ? (
+                  <div className="p-3 bg-green-950/40 border border-green-700 rounded text-xs space-y-1">
+                    <div className="flex items-center gap-2 text-green-300 font-semibold">
+                      <span>✓</span>
+                      <span>USB Dongle Terdeteksi Otomatis</span>
+                    </div>
+                    <p className="text-dark-300 font-mono truncate">
+                      File: {daemonDongle.fileName}
+                    </p>
+                    <p className="text-dark-400 text-[11px] truncate">
+                      Lokasi: {daemonDongle.filePath || daemonDongle.drive}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-yellow-950/40 border border-yellow-700/60 rounded text-xs space-y-1">
+                    <div className="flex items-center gap-2 text-yellow-300 font-semibold">
+                      <span className="animate-pulse">●</span>
+                      <span>Menunggu USB Dongle...</span>
+                    </div>
+                    <p className="text-dark-300 text-[11px]">
+                      {daemonOnline
+                        ? 'Colokkan flashdisk berisi file kunci dongle (.json).'
+                        : 'USB Agent belum aktif di background (jalankan `node usb-agent/src/server.js`).'}
+                    </p>
                   </div>
                 )}
-
-                {selectedDongleId && (
-                  <p className="text-xs text-green-400 mt-2">
-                    ✓ Dongle berhasil dipilih.
-                  </p>
-                )}
               </div>
-
 
               <button
                 type="submit"
