@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { blockchainApi } from '../services/api';
 
 export default function BlockchainTab() {

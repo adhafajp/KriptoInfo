@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { vaultApi, cryptoApi } from '../services/api';
 
 export default function VaultTab() {

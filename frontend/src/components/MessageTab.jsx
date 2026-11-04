@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { cryptoApi } from '../services/api';
 
 export default function MessageTab() {

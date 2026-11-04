@@ -11,6 +11,6 @@ module.exports = {
   settings: { react: { version: '18.3' } },
   rules: {
     'react/prop-types': 'off',
-    'no-unused-vars': 'warn'
+    'no-unused-vars': ['warn', { 'varsIgnorePattern': '^React$' }]
   },
 }
