@@ -4,7 +4,7 @@ import { generateKeyPairSync, createPublicKey, verify } from 'node:crypto';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { discoverDongles, signDongleChallenge } from '../src/dongle.js';
+import { discoverDongles, saveDongleToFolder, signDongleChallenge } from '../src/dongle.js';
 
 function makePair() {
   const pair = generateKeyPairSync('ed25519');
@@ -69,4 +69,22 @@ test('menolak challenge yang tidak sesuai format backend', async () => {
     () => signDongleChallenge('unused.json', 'bad'),
     /Challenge tidak valid/
   );
+});
+
+test('saveDongleToFolder membuat folder KryptoInfoDongle dan menyimpan file dongle valid', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'kryptoinfo-usb-save-'));
+  try {
+    const targetFolder = path.join(root, 'KryptoInfoDongle');
+    const pair = makePair();
+    const result = await saveDongleToFolder(targetFolder, 'testuser', pair.privateKeyPkcs8);
+
+    assert.equal(result.fileName, 'kryptoinfo-dongle-testuser.json');
+    assert.equal(result.filePath, path.join(targetFolder, 'kryptoinfo-dongle-testuser.json'));
+
+    const discovered = await discoverDongles({ roots: [root] });
+    assert.equal(discovered.length, 1);
+    assert.equal(discovered[0].username, 'testuser');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

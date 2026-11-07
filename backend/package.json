@@ -32,6 +32,7 @@
     "mariadb": "^3.4.0",
     "morgan": "^1.10.0",
     "multer": "^2.5.0",
+    "nodemon": "^3.1.14",
     "pngjs": "^7.0.0"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 import { createHash, createPrivateKey, createPublicKey, sign } from 'node:crypto';
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const MAX_DONGLE_FILE_BYTES = 64 * 1024;
@@ -151,4 +151,17 @@ export async function signDongleChallenge(filePath, challengeText) {
   const privateKey = await readDonglePrivateKey(filePath);
   const signature = sign(null, Buffer.from(challengeText, 'utf8'), privateKey);
   return signature.toString('base64url');
+}
+
+export async function saveDongleToFolder(targetDir, username, privateKeyPkcs8) {
+  const safeUsername = String(username || 'user').trim().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
+  await mkdir(targetDir, { recursive: true });
+  const fileName = `kryptoinfo-dongle-${safeUsername}.json`;
+  const filePath = path.join(targetDir, fileName);
+  const content = JSON.stringify({
+    username: safeUsername,
+    privateKeyPkcs8
+  }, null, 2);
+  await writeFile(filePath, content, 'utf8');
+  return { filePath, fileName };
 }

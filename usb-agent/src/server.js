@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import http from 'node:http';
-import { findAvailableDongles, publicDongleInfo } from './discovery.js';
-import { signDongleChallenge } from './dongle.js';
+import path from 'node:path';
+import { findAvailableDongles, getDongleRoots, getWindowsRemovableDrives, publicDongleInfo } from './discovery.js';
+import { saveDongleToFolder, signDongleChallenge } from './dongle.js';
 
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.PORT || 8787);
@@ -106,19 +107,31 @@ const server = http.createServer(async (req, res) => {
     try {
       const dongles = await findAvailableDongles();
       const publicDongles = dongles.map(publicDongleInfo);
+      const reqUser = url.searchParams.get('username')?.trim().toLowerCase();
+      let matched = publicDongles;
+      if (reqUser) {
+        matched = publicDongles.filter(d =>
+          (d.username && d.username.toLowerCase() === reqUser) ||
+          (d.fileName && d.fileName.toLowerCase() === `kryptoinfo-dongle-${reqUser}.json`)
+        );
+      }
       return sendJson(res, 200, {
         success: true,
-        detected: publicDongles.length > 0,
-        count: publicDongles.length,
-        dongles: publicDongles,
-        message: publicDongles.length
-          ? `${publicDongles.length} dongle valid ditemukan.`
-          : 'Tidak ada dongle valid pada drive removable yang terdeteksi.'
+        detected: matched.length > 0,
+        dongleDetected: matched.length > 0,
+        count: matched.length,
+        dongles: matched,
+        fileName: matched[0]?.fileName || null,
+        dongle: matched[0] || null,
+        message: matched.length
+          ? `${matched.length} dongle valid ditemukan.`
+          : (reqUser ? `Dongle untuk ${reqUser} tidak ditemukan di flashdisk.` : 'Tidak ada dongle valid pada drive removable yang terdeteksi.')
       });
     } catch (error) {
       return sendJson(res, 503, {
         success: false,
         detected: false,
+        dongleDetected: false,
         count: 0,
         dongles: [],
         message: error.message
@@ -172,6 +185,57 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, getErrorStatus(error), {
         success: false,
         message: error.message || 'Gagal menandatangani challenge.'
+      });
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/save-dongle') {
+    if (!String(req.headers['content-type'] || '').includes('application/json')) {
+      return sendJson(res, 415, { success: false, message: 'Content-Type harus application/json.' });
+    }
+
+    try {
+      const body = await readJsonBody(req);
+      const username = body.username;
+      const privateKeyPkcs8 = body.privateKeyPkcs8 || body.dongleData?.privateKeyPkcs8;
+
+      if (!username || typeof username !== 'string') {
+        return sendJson(res, 400, { success: false, message: 'username wajib diisi.' });
+      }
+      if (!privateKeyPkcs8 || typeof privateKeyPkcs8 !== 'string') {
+        return sendJson(res, 400, { success: false, message: 'privateKeyPkcs8 wajib diisi.' });
+      }
+
+      let roots = await getDongleRoots();
+      if (roots.length === 0) {
+        const remDrives = await getWindowsRemovableDrives();
+        if (remDrives.length > 0) roots = remDrives;
+      }
+
+      if (roots.length === 0) {
+        return sendJson(res, 404, {
+          success: false,
+          code: 'FLASHDISK_NOT_FOUND',
+          message: 'Flashdisk tidak terdeteksi. Colokkan flashdisk terlebih dahulu.'
+        });
+      }
+
+      const targetDrive = roots[0];
+      const targetFolder = path.join(targetDrive, 'KryptoInfoDongle');
+      const saved = await saveDongleToFolder(targetFolder, username.trim(), privateKeyPkcs8.trim());
+
+      return sendJson(res, 200, {
+        success: true,
+        message: `Dongle berhasil disimpan ke ${saved.filePath}`,
+        drive: targetDrive,
+        folder: 'KryptoInfoDongle',
+        fileName: saved.fileName,
+        filePath: saved.filePath
+      });
+    } catch (error) {
+      return sendJson(res, 500, {
+        success: false,
+        message: error.message || 'Gagal menyimpan dongle ke flashdisk.'
       });
     }
   }
