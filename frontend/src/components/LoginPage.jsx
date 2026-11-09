@@ -62,6 +62,7 @@ export default function LoginPage({ onLoginSuccess }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const manualStoppedRef = useRef(false);
+  const autoStartTimeoutRef = useRef(null);
 
   function closeCamera() {
     stopFaceCamera(streamRef.current);
@@ -266,12 +267,20 @@ export default function LoginPage({ onLoginSuccess }) {
     }
   }
 
-  // Smart Auto-Start: nyalakan kamera saat user mengetik username
+  // Smart Auto-Start: nyalakan kamera saat user mengetik username (debounce 800ms)
   useEffect(() => {
     const clean = username.trim();
-    if (clean.length >= 3 && !cameraActive && !cameraStarting && !manualStoppedRef.current) {
+    if (clean.length < 3 || cameraActive || cameraStarting || manualStoppedRef.current) return;
+
+    if (autoStartTimeoutRef.current) clearTimeout(autoStartTimeoutRef.current);
+
+    autoStartTimeoutRef.current = setTimeout(() => {
       handleStartCamera();
-    }
+    }, 800);
+
+    return () => {
+      if (autoStartTimeoutRef.current) clearTimeout(autoStartTimeoutRef.current);
+    };
   }, [username, cameraActive, cameraStarting]);
 
   // Reset status manual stop jika user berpindah mode
