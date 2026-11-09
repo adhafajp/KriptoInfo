@@ -7,6 +7,7 @@ import {
   loadFaceModels,
   startFaceCamera,
   captureFaceDescriptor,
+  captureFaceSamples,
   detectFaceBox,
   extractQuickDescriptor,
   computeDisplayBox,
@@ -304,6 +305,24 @@ export default function LoginPage({ onLoginSuccess }) {
     return descriptor;
   }
 
+  // Login memakai 3 sampel individu (matriks) — backend mensyaratkan SEMUA sampel
+  // berada di bawah ambang batas agar tombol putih/wajah generik tidak lolos.
+  async function getLoginFaceSamples() {
+    if (!cameraActive || !videoRef.current) {
+      throw new Error('Aktifkan kamera terlebih dahulu.');
+    }
+
+    setFaceStatus('Memulai pemindaian biometrik ketat (3 sampel)...');
+
+    const samples = await captureFaceSamples(videoRef.current, (current, total) => {
+      setFaceStatus(`Mengambil sampel ketat ${current}/${total} (semua harus lolos)...`);
+    });
+
+    setFaceStatus('Pemindaian ketat selesai.');
+
+    return samples;
+  }
+
   async function handleLogin(e) {
     e.preventDefault();
 
@@ -320,7 +339,7 @@ export default function LoginPage({ onLoginSuccess }) {
       return;
     }
 
-    if (faceMatchInfo?.status === 'mismatched') {
+    if (faceMatchInfo?.status === 'mismatched' || faceMatchInfo?.status === 'user_not_found') {
       setError(`Wajah di kamera tidak cocok dengan pemilik akun @${username.trim()}. Akses ditolak.`);
       return;
     }
@@ -328,7 +347,7 @@ export default function LoginPage({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const faceDescriptor = await getCurrentFaceDescriptor();
+      const faceDescriptor = await getLoginFaceSamples();
 
       const challengeRes = await authApi.challenge(username.trim());
 

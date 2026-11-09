@@ -177,8 +177,10 @@ async function detectSingleFrame(videoElement) {
   return descriptor;
 }
 
-// Mendeteksi wajah dengan multi-frame sampling (rata-rata 3 frame untuk kestabilan biometrik).
-export async function captureFaceDescriptor(videoElement, onProgress = null) {
+// Dua jalur capture: multi-sampel (login, ketat) & descriptor rata-rata (enroll).
+// Kembalikan daftar 3 descriptor individu (masing-masing L2-normalized) untuk
+// verifikasi "SEMUA sampel harus lolos" di backend (anti false-accept).
+export async function captureFaceSamples(videoElement, onProgress = null) {
   await loadFaceModels();
 
   if (!videoElement) {
@@ -202,14 +204,17 @@ export async function captureFaceDescriptor(videoElement, onProgress = null) {
     }
 
     const descriptor = await detectSingleFrame(videoElement);
-    samples.push(descriptor);
+    samples.push(l2Normalize(descriptor));
 
     if (i < SAMPLE_COUNT - 1) {
       await new Promise(resolve => setTimeout(resolve, 150));
     }
   }
 
-  // Hitung rata-rata tiap elemen vektor 128-d
+  return samples;
+}
+
+function averageSamples(samples) {
   const averaged = new Array(128).fill(0);
   for (let i = 0; i < 128; i++) {
     let sum = 0;
@@ -218,9 +223,13 @@ export async function captureFaceDescriptor(videoElement, onProgress = null) {
     }
     averaged[i] = sum / samples.length;
   }
-
-  // Normalisasi L2 agar jarak Euclidean presisi
   return l2Normalize(averaged);
+}
+
+// Mendeteksi wajah dengan multi-frame sampling (rata-rata 3 frame untuk kestabilan biometrik).
+export async function captureFaceDescriptor(videoElement, onProgress = null) {
+  const samples = await captureFaceSamples(videoElement, onProgress);
+  return averageSamples(samples);
 }
 
 // Mematikan kamera.

@@ -9,9 +9,15 @@ import { aesEncrypt, aesDecrypt, verifyDongleSignature } from '../crypto/crypto.
 
 const genericLoginError = 'Autentikasi gagal. Periksa username, password, dongle, dan wajah.';
 
+// Descriptor tunggal = [128 angka] atau multi-sampel = [[128 angka], ...]
 function validFaceDescriptor(value) {
-  return Array.isArray(value) && value.length === 128 &&
-    value.every(number => typeof number === 'number' && Number.isFinite(number));
+  if (Array.isArray(value) && value.length === 128) {
+    return value.every(number => typeof number === 'number' && Number.isFinite(number));
+  }
+  if (Array.isArray(value) && value.length >= 1 && value.length <= 5) {
+    return value.every(sample => validFaceDescriptor(sample));
+  }
+  return false;
 }
 
 function passwordProblem(password, username) {
@@ -36,10 +42,11 @@ function l2Normalize(vector) {
 
 function getFaceThreshold() {
   const configured = Number(process.env.FACE_MATCH_THRESHOLD);
-  if (Number.isFinite(configured) && configured > 0 && configured <= 0.38) {
+  // Hardening anti-spoofing: cap maksimum 0.32, fallback ketat 0.30.
+  if (Number.isFinite(configured) && configured > 0 && configured <= 0.32) {
     return configured;
   }
-  return 0.33;
+  return 0.30;
 }
 
 function faceDistance(first, second) {
@@ -49,6 +56,19 @@ function faceDistance(first, second) {
     return total + (value - norm2[index]) ** 2;
   }, 0);
   return Math.sqrt(sum);
+}
+
+// Kembalikan { ok, maxDistance, meanDistance } untuk keputusan multi-sampel ketat.
+// faceOk hanya jika SEMUA sampel berada di bawah ambang (anti false-accept).
+function evaluateFace(storedTemplate, faceDescriptor, threshold) {
+  const samples = Array.isArray(faceDescriptor[0])
+    ? faceDescriptor
+    : [faceDescriptor];
+  const distances = samples.map(sample => faceDistance(storedTemplate, sample));
+  const maxDistance = Math.max(...distances);
+  const meanDistance = distances.reduce((s, d) => s + d, 0) / distances.length;
+  const ok = Number.isFinite(maxDistance) && maxDistance <= threshold;
+  return { ok, maxDistance, meanDistance, sampleCount: distances.length };
 }
 
 function audit(userId, action, status, req, detail = null) {
@@ -191,12 +211,12 @@ export async function login(req, res) {
   const dongleOk = verifyDongleSignature(user.dongle.publicKey, challenge.challenge, signature);
 
   let faceOk = false;
-  let distanceVal = null;
+  let faceDetail = null;
   try {
     const storedTemplate = JSON.parse(aesDecrypt(JSON.parse(user.faceTemplate)).toString('utf8'));
-    distanceVal = faceDistance(storedTemplate, faceDescriptor);
     const threshold = getFaceThreshold();
-    faceOk = Number.isFinite(distanceVal) && distanceVal <= threshold;
+    faceDetail = evaluateFace(storedTemplate, faceDescriptor, threshold);
+    faceOk = faceDetail.ok;
   } catch {
     faceOk = false;
   }
@@ -205,7 +225,11 @@ export async function login(req, res) {
     const failReasons = [];
     if (!passwordOk) failReasons.push('password');
     if (!dongleOk) failReasons.push('dongle');
-    if (!faceOk) failReasons.push(`face (distance: ${distanceVal !== null ? distanceVal.toFixed(4) : 'invalid'})`);
+    if (!faceOk) {
+      failReasons.push(faceDetail
+        ? `face (max: ${faceDetail.maxDistance.toFixed(4)}, mean: ${faceDetail.meanDistance.toFixed(4)}, samples: ${faceDetail.sampleCount})`
+        : 'face (invalid descriptor)');
+    }
     await audit(user.id, 'LOGIN', 'FAILED', req, `Factors rejected: ${failReasons.join(', ')}`);
     return res.status(401).json({ success: false, message: genericLoginError });
   }
@@ -282,16 +306,20 @@ export async function verifyFacePreview(req, res) {
 
   try {
     const storedTemplate = JSON.parse(aesDecrypt(JSON.parse(user.faceTemplate)).toString('utf8'));
-    const distanceVal = faceDistance(storedTemplate, faceDescriptor);
     const threshold = getFaceThreshold();
-    const match = Number.isFinite(distanceVal) && distanceVal <= threshold;
+    const detail = evaluateFace(storedTemplate, faceDescriptor, threshold);
+    const match = detail.ok;
+    const returnValue = Math.max(detail.maxDistance, detail.meanDistance);
 
     return res.json({
       success: true,
       data: {
         userFound: true,
         match,
-        distance: Number(distanceVal.toFixed(4)),
+        distance: Number(returnValue.toFixed(4)),
+        maxDistance: Number(detail.maxDistance.toFixed(4)),
+        meanDistance: Number(detail.meanDistance.toFixed(4)),
+        sampleCount: detail.sampleCount,
         threshold
       }
     });
