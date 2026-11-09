@@ -68,3 +68,23 @@ input:focus, textarea:focus, select:focus {
 
 /* Smooth transitions */
 button, a { transition: all 0.2s ease; }
+
+/* Face Detection HUD Animation */
+@keyframes hudScan {
+  0% { top: 0%; opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { top: 100%; opacity: 0.3; }
+}
+
+.animate-hud-scan {
+  animation: hudScan 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+}
+
+@keyframes hudSpinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-hud-spin {
+  animation: hudSpinSlow 12s linear infinite;
+}

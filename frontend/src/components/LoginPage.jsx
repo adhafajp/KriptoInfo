@@ -7,6 +7,8 @@ import {
   loadFaceModels,
   startFaceCamera,
   captureFaceDescriptor,
+  detectFaceBox,
+  computeDisplayBox,
   stopFaceCamera
 } from '../utils/faceHelper';
 
@@ -48,6 +50,7 @@ export default function LoginPage({ onLoginSuccess }) {
   const [faceStatus, setFaceStatus] = useState(
     'Kamera belum diaktifkan.'
   );
+  const [detectedFaceBox, setDetectedFaceBox] = useState(null);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -61,6 +64,7 @@ export default function LoginPage({ onLoginSuccess }) {
     }
 
     setCameraActive(false);
+    setDetectedFaceBox(null);
     setFaceStatus('Kamera belum diaktifkan.');
   }
 
@@ -78,6 +82,50 @@ export default function LoginPage({ onLoginSuccess }) {
         videoRef.current.play().catch(() => {});
       }
     }
+  }, [cameraActive]);
+
+  useEffect(() => {
+    let active = true;
+    let timeoutId = null;
+
+    async function trackLoop() {
+      if (!active || !cameraActive || !videoRef.current) return;
+      try {
+        if (videoRef.current.readyState >= 2 && videoRef.current.videoWidth > 0) {
+          const res = await detectFaceBox(videoRef.current);
+          if (active) {
+            if (res && res.box) {
+              const display = computeDisplayBox(res.box, videoRef.current);
+              if (display) {
+                setDetectedFaceBox({
+                  ...display,
+                  score: Math.round(res.score * 100)
+                });
+              }
+            } else {
+              setDetectedFaceBox(null);
+            }
+          }
+        }
+      } catch {
+        // error tracking loop dilewati agar tidak mengganggu video
+      }
+
+      if (active && cameraActive) {
+        timeoutId = setTimeout(trackLoop, 100);
+      }
+    }
+
+    if (cameraActive) {
+      trackLoop();
+    } else {
+      setDetectedFaceBox(null);
+    }
+
+    return () => {
+      active = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [cameraActive]);
 
   useEffect(() => {
@@ -155,11 +203,13 @@ export default function LoginPage({ onLoginSuccess }) {
       throw new Error('Aktifkan kamera terlebih dahulu.');
     }
 
-    setFaceStatus('Sedang mendeteksi wajah...');
+    setFaceStatus('Memulai pemindaian biometrik...');
 
-    const descriptor = await captureFaceDescriptor(videoRef.current);
+    const descriptor = await captureFaceDescriptor(videoRef.current, (current, total) => {
+      setFaceStatus(`Mengambil sampel biometrik wajah (${current}/${total})...`);
+    });
 
-    setFaceStatus('Wajah berhasil terdeteksi.');
+    setFaceStatus('Pemindaian biometrik selesai & terverifikasi.');
 
     return descriptor;
   }
@@ -391,14 +441,69 @@ export default function LoginPage({ onLoginSuccess }) {
                     </div>
                   )}
 
-                  {/* Corner brackets for scan effect */}
+                  {/* Corner frame guides when camera is active */}
                   {cameraActive && (
                     <>
-                      <div className="absolute top-2 left-2 w-5 h-5 border-t-2 border-l-2 border-vault-400/60 rounded-tl" />
-                      <div className="absolute top-2 right-2 w-5 h-5 border-t-2 border-r-2 border-vault-400/60 rounded-tr" />
-                      <div className="absolute bottom-2 left-2 w-5 h-5 border-b-2 border-l-2 border-vault-400/60 rounded-bl" />
-                      <div className="absolute bottom-2 right-2 w-5 h-5 border-b-2 border-r-2 border-vault-400/60 rounded-br" />
+                      <div className="absolute top-2 left-2 w-4 h-4 border-t border-l border-dark-700/60" />
+                      <div className="absolute top-2 right-2 w-4 h-4 border-t border-r border-dark-700/60" />
+                      <div className="absolute bottom-2 left-2 w-4 h-4 border-b border-l border-dark-700/60" />
+                      <div className="absolute bottom-2 right-2 w-4 h-4 border-b border-r border-dark-700/60" />
                     </>
+                  )}
+
+                  {/* Dynamic Face Tracking Reticle - Smoothly follows user face */}
+                  {cameraActive && detectedFaceBox && (
+                    <div
+                      className="absolute pointer-events-none transition-all duration-100 ease-out z-20"
+                      style={{
+                        left: `${detectedFaceBox.left}px`,
+                        top: `${detectedFaceBox.top}px`,
+                        width: `${detectedFaceBox.width}px`,
+                        height: `${detectedFaceBox.height}px`,
+                      }}
+                    >
+                      {/* 4 Glowing Corner Brackets */}
+                      <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-vault-400 shadow-[0_0_10px_#22c55e]" />
+                      <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-vault-400 shadow-[0_0_10px_#22c55e]" />
+                      <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-vault-400 shadow-[0_0_10px_#22c55e]" />
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-vault-400 shadow-[0_0_10px_#22c55e]" />
+
+                      {/* Laser Scan Line moving up and down */}
+                      <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-vault-400 to-transparent shadow-[0_0_10px_#22c55e] animate-hud-scan" />
+
+                      {/* Center Target Crosshair */}
+                      <div className="absolute inset-0 flex items-center justify-center opacity-40">
+                        <div className="w-3 h-0.5 bg-vault-400" />
+                        <div className="h-3 w-0.5 bg-vault-400 absolute" />
+                      </div>
+
+                      {/* Top HUD Tag */}
+                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 rounded bg-black/85 border border-vault-500/60 flex items-center gap-1.5 shadow-[0_0_10px_rgba(34,197,94,0.3)]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-vault-400 animate-ping" />
+                        <span className="text-[9px] font-mono font-bold tracking-widest text-vault-300">TARGET LOCKED</span>
+                      </div>
+
+                      {/* Bottom HUD Tag */}
+                      <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 rounded bg-black/80 border border-dark-700/80 text-[8px] font-mono text-dark-300 flex items-center gap-2">
+                        <span>CONF: <strong className="text-vault-400">{detectedFaceBox.score}%</strong></span>
+                        <span className="text-dark-500">POS: {detectedFaceBox.left},{detectedFaceBox.top}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Searching Indicator when no face detected yet */}
+                  {cameraActive && !detectedFaceBox && (
+                    <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
+                      <div className="relative w-28 h-28 flex items-center justify-center">
+                        <div className="absolute inset-0 border border-dashed border-vault-500/40 rounded-full animate-hud-spin" />
+                        <div className="w-20 h-20 border border-vault-500/20 rounded-full animate-ping" />
+                        <ScanFace className="w-7 h-7 text-vault-500/60" />
+                      </div>
+                      <div className="mt-2.5 px-2 py-0.5 rounded bg-black/70 border border-dark-800 text-[9px] font-mono tracking-widest text-dark-400 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-400/80 animate-pulse" />
+                        MENCARI WAJAH...
+                      </div>
+                    </div>
                   )}
                 </div>
 

@@ -175,17 +175,23 @@ export async function login(req, res) {
   const dongleOk = verifyDongleSignature(user.dongle.publicKey, challenge.challenge, signature);
 
   let faceOk = false;
+  let distanceVal = null;
   try {
     const storedTemplate = JSON.parse(aesDecrypt(JSON.parse(user.faceTemplate)).toString('utf8'));
-    const distance = faceDistance(storedTemplate, faceDescriptor);
-    const threshold = Number(process.env.FACE_MATCH_THRESHOLD || 0.6);
-    faceOk = Number.isFinite(distance) && distance <= threshold;
+    distanceVal = faceDistance(storedTemplate, faceDescriptor);
+    const configuredThreshold = Number(process.env.FACE_MATCH_THRESHOLD);
+    const threshold = Number.isFinite(configuredThreshold) && configuredThreshold > 0 ? configuredThreshold : 0.45;
+    faceOk = Number.isFinite(distanceVal) && distanceVal <= threshold;
   } catch {
     faceOk = false;
   }
 
   if (!passwordOk || !dongleOk || !faceOk) {
-    await audit(user.id, 'LOGIN', 'FAILED', req, 'One or more factors rejected');
+    const failReasons = [];
+    if (!passwordOk) failReasons.push('password');
+    if (!dongleOk) failReasons.push('dongle');
+    if (!faceOk) failReasons.push(`face (distance: ${distanceVal !== null ? distanceVal.toFixed(4) : 'invalid'})`);
+    await audit(user.id, 'LOGIN', 'FAILED', req, `Factors rejected: ${failReasons.join(', ')}`);
     return res.status(401).json({ success: false, message: genericLoginError });
   }
 
