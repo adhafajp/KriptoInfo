@@ -30,9 +30,13 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Sun,
+  Moon,
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export default function LoginPage({ onLoginSuccess }) {
+  const { toggleTheme, isDark } = useTheme();
   const [mode, setMode] = useState('login');
 
   const [username, setUsername] = useState('');
@@ -479,18 +483,30 @@ export default function LoginPage({ onLoginSuccess }) {
   ];
 
   return (
-    <div className="min-h-screen vault-bg flex items-center justify-center p-4" style={{ background: '#0a0f0d' }}>
+    <div className="min-h-screen vault-bg flex items-center justify-center p-4 transition-colors">
       <div className="w-full max-w-4xl">
 
-        {/* Header: compact logo + title on one line */}
-        <div className="flex items-center justify-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-vault-950/80 border border-vault-700/30 flex items-center justify-center">
-            <Shield className="w-5 h-5 text-vault-400" strokeWidth={1.5} />
+        {/* Header: compact logo + title + theme toggle */}
+        <div className="flex items-center justify-between mb-5 px-1">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-vault-500/10 dark:bg-vault-950/80 border border-vault-500/30 dark:border-vault-700/30 flex items-center justify-center shadow-lg">
+              <Shield className="w-5 h-5 text-vault-600 dark:text-vault-400" strokeWidth={1.5} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight leading-tight">KryptoInfo</h1>
+              <p className="text-vault-600 dark:text-vault-400/80 text-[10px] font-medium tracking-widest uppercase">Secure Digital Vault</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-tight leading-tight">KryptoInfo</h1>
-            <p className="text-vault-400/80 text-[10px] font-medium tracking-widest uppercase">Secure Digital Vault</p>
-          </div>
+
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="p-2.5 rounded-xl bg-white/90 dark:bg-dark-900/90 hover:bg-slate-100 dark:hover:bg-dark-850 border border-slate-200 dark:border-dark-800 text-slate-600 dark:text-dark-300 hover:text-vault-600 dark:hover:text-vault-400 transition-all shadow-sm"
+            title={isDark ? 'Beralih ke Light Mode' : 'Beralih ke Dark Mode'}
+            aria-label="Toggle Theme"
+          >
+            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-vault-600" />}
+          </button>
         </div>
 
         {/* Main Card — two-column layout */}
