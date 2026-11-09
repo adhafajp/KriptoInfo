@@ -15,6 +15,7 @@ Proyek ini dikembangkan sebagai tugas akhir mata kuliah **Kriptografi**.
 | Jenis Aplikasi | Web-Based Digital Vault |
 | Mata Kuliah | Kriptografi |
 | Anggota 1 | Adhafa Joan Putranto |
+| NIM Anggota 1 | 123240069 |
 | Anggota 2 | Mirwan Qolyubi |
 | NIM Anggota 2 | 123240116 |
 | Status | Dalam Pengembangan |
