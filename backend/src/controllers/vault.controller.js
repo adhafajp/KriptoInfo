@@ -14,9 +14,9 @@ function ensureStorageDir() {
 }
 
 export async function createVaultItem(req, res) {
-  const { title, category, encryptedData } = req.body;
-  if (typeof title !== 'string' || !title.trim() || typeof category !== 'string' || !encryptedData) {
-    return res.status(400).json({ success: false, message: 'title, category, dan encryptedData wajib diisi.' });
+  const { title, category = 'NOTE', encryptedData } = req.body;
+  if (typeof title !== 'string' || !title.trim() || !encryptedData) {
+    return res.status(400).json({ success: false, message: 'title dan encryptedData wajib diisi.' });
   }
   let parsedData = encryptedData;
   if (typeof encryptedData === 'string') {

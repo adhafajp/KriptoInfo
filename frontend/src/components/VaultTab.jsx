@@ -1,16 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { vaultApi, cryptoApi } from '../services/api';
 import {
-  Lock, Unlock, Plus, Trash2, KeyRound, FileText, CreditCard,
+  Lock, Unlock, Plus, Trash2, KeyRound, FileText,
   FolderLock, AlertCircle, Loader2, ChevronRight, X, Eye, ShieldCheck,
   Upload, Download, File, HardDrive
 } from 'lucide-react';
-
-const CATEGORY_META = {
-  NOTE: { label: 'Catatan Rahasia', icon: FileText, color: 'text-blue-400' },
-  CREDENTIAL: { label: 'Kredensial / Akun', icon: CreditCard, color: 'text-amber-400' },
-  DOCUMENT: { label: 'Dokumen / File', icon: FolderLock, color: 'text-purple-400' },
-};
 
 export default function VaultTab() {
   const [items, setItems] = useState([]);
@@ -19,7 +13,6 @@ export default function VaultTab() {
   const [showAdd, setShowAdd] = useState(false);
   const [addMode, setAddMode] = useState('text');
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('NOTE');
   const [secretContent, setSecretContent] = useState('');
   const [vigenereKey, setVigenereKey] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -65,7 +58,6 @@ export default function VaultTab() {
       setLoading(true);
       const res = await vaultApi.uploadFile({
         title: title.trim(),
-        category: 'DOCUMENT',
         fileName: selectedFile.name,
         fileType: selectedFile.type,
         fileBase64
@@ -87,7 +79,7 @@ export default function VaultTab() {
     setError(''); setLoading(true);
     const encRes = await cryptoApi.encryptMessage(secretContent, vigenereKey);
     if (!encRes.success) { setLoading(false); setError(encRes.message || 'Gagal mengenkripsi konten'); return; }
-    const res = await vaultApi.create({ title, category, encryptedData: encRes.data });
+    const res = await vaultApi.create({ title, encryptedData: encRes.data });
     setLoading(false);
     if (res.success) { setShowAdd(false); setTitle(''); setSecretContent(''); setVigenereKey(''); loadItems(); }
     else { setError(res.message); }
@@ -214,18 +206,6 @@ export default function VaultTab() {
           {addMode === 'text' ? (
             <>
               <div>
-                <label className="block text-xs text-dark-400 mb-1.5 uppercase tracking-wider font-medium">Kategori</label>
-                <div className="flex gap-2">
-                  {Object.entries(CATEGORY_META).map(([key, meta]) => (
-                    <button key={key} onClick={() => setCategory(key)}
-                      className={`flex-1 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all border ${category === key ? 'bg-vault-600/20 border-vault-600/30 text-vault-400' : 'bg-dark-900/40 border-dark-700/30 text-dark-400 hover:border-dark-600'}`}>
-                      <meta.icon className="w-3.5 h-3.5" />
-                      {meta.label.split(' / ')[0]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
                 <label className="block text-xs text-dark-400 mb-1.5 uppercase tracking-wider font-medium">Konten Rahasia (Plaintext)</label>
                 <textarea value={secretContent} onChange={(e) => setSecretContent(e.target.value)}
                   className="w-full px-3 py-2.5 bg-dark-900/80 text-white rounded-xl border border-dark-700/50 focus:border-vault-500/50 focus:outline-none text-sm"
@@ -297,21 +277,19 @@ export default function VaultTab() {
           )}
           {items.map((item) => {
             const isFile = Boolean(item.fileName);
-            const meta = isFile
-              ? { label: 'Berkas Terenkripsi', icon: File, color: 'text-purple-400' }
-              : (CATEGORY_META[item.category] || CATEGORY_META.NOTE);
-            const Icon = meta.icon;
+            const Icon = isFile ? File : FileText;
+            const iconColor = isFile ? 'text-purple-400' : 'text-blue-400';
             return (
               <div key={item.id}
                 className={`p-3 rounded-xl flex items-center gap-3 cursor-pointer transition-all border ${selectedItem?.id === item.id ? 'bg-vault-600/10 border-vault-600/30' : 'bg-dark-900/40 border-dark-700/30 hover:border-dark-600'}`}
                 onClick={() => handleView(item.id)}>
                 <div className="w-9 h-9 rounded-lg bg-dark-800/60 flex items-center justify-center flex-shrink-0">
-                  <Icon className={`w-4 h-4 ${meta.color}`} />
+                  <Icon className={`w-4 h-4 ${iconColor}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-white text-sm truncate">{item.title}</p>
                   <p className="text-[10px] text-dark-400 uppercase tracking-wider">
-                    {isFile ? `Berkas • ${formatSize(item.fileSize)}` : meta.label}
+                    {isFile ? `Berkas • ${formatSize(item.fileSize)}` : 'Catatan Teks'}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -334,9 +312,9 @@ export default function VaultTab() {
                 <div>
                   <h4 className="text-lg font-bold text-white">{selectedItem.title}</h4>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg bg-dark-800/60 ${selectedItem.fileName ? 'text-purple-400' : (CATEGORY_META[selectedItem.category] || CATEGORY_META.NOTE).color}`}>
+                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg bg-dark-800/60 ${selectedItem.fileName ? 'text-purple-400' : 'text-blue-400'}`}>
                       {selectedItem.fileName ? <File className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
-                      {selectedItem.fileName ? 'Berkas Terenkripsi' : (CATEGORY_META[selectedItem.category] || CATEGORY_META.NOTE).label}
+                      {selectedItem.fileName ? 'Berkas Terenkripsi' : 'Catatan Teks'}
                     </span>
                     {selectedItem.fileSize && (
                       <span className="text-xs text-dark-500 font-mono">
