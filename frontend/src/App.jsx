@@ -255,7 +255,7 @@ function App() {
 
         {/* Mobile Slide-Over Drawer */}
         {mobileMenuOpen && (
-          <div className="lg:hidden fixed inset-0 top-[57px] bg-slate-900/60 dark:bg-black/80 backdrop-blur-md z-50 flex flex-col p-4 animate-fade-in border-t border-slate-200 dark:border-dark-800">
+          <div className="lg:hidden fixed inset-0 top-[57px] bg-white/95 dark:bg-black/80 backdrop-blur-md z-50 flex flex-col p-4 animate-fade-in border-t border-slate-200 dark:border-dark-800">
             {/* User Info Bar */}
             <div className="p-3.5 rounded-xl bg-white dark:bg-dark-900/90 border border-slate-200 dark:border-dark-800 mb-4 flex items-center justify-between shadow-sm">
               <div className="flex items-center gap-2.5">
