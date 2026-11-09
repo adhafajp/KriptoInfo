@@ -156,7 +156,7 @@
       ],
       "paths":
       [
-          "ssd_mobilenetv1_model.bin"
+          "ssd_mobilenetv1_model.weights"
       ]
   }
 ]
