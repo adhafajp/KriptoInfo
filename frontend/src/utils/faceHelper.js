@@ -85,7 +85,7 @@ export async function extractQuickDescriptor(videoElement) {
     const detection = await faceapi
       .detectSingleFace(
         videoElement,
-        new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
+        new faceapi.SsdMobilenetv1Options({ minConfidence: 0.65 })
       )
       .withFaceLandmarks()
       .withFaceDescriptor();

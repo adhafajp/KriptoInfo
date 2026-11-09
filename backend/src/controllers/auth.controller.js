@@ -34,6 +34,14 @@ function l2Normalize(vector) {
   return vector.map(val => val / norm);
 }
 
+function getFaceThreshold() {
+  const configured = Number(process.env.FACE_MATCH_THRESHOLD);
+  if (Number.isFinite(configured) && configured > 0 && configured <= 0.38) {
+    return configured;
+  }
+  return 0.33;
+}
+
 function faceDistance(first, second) {
   const norm1 = l2Normalize(first);
   const norm2 = l2Normalize(second);
@@ -187,8 +195,7 @@ export async function login(req, res) {
   try {
     const storedTemplate = JSON.parse(aesDecrypt(JSON.parse(user.faceTemplate)).toString('utf8'));
     distanceVal = faceDistance(storedTemplate, faceDescriptor);
-    const configuredThreshold = Number(process.env.FACE_MATCH_THRESHOLD);
-    const threshold = Number.isFinite(configuredThreshold) && configuredThreshold > 0 ? configuredThreshold : 0.35;
+    const threshold = getFaceThreshold();
     faceOk = Number.isFinite(distanceVal) && distanceVal <= threshold;
   } catch {
     faceOk = false;
@@ -276,8 +283,7 @@ export async function verifyFacePreview(req, res) {
   try {
     const storedTemplate = JSON.parse(aesDecrypt(JSON.parse(user.faceTemplate)).toString('utf8'));
     const distanceVal = faceDistance(storedTemplate, faceDescriptor);
-    const configuredThreshold = Number(process.env.FACE_MATCH_THRESHOLD);
-    const threshold = Number.isFinite(configuredThreshold) && configuredThreshold > 0 ? configuredThreshold : 0.35;
+    const threshold = getFaceThreshold();
     const match = Number.isFinite(distanceVal) && distanceVal <= threshold;
 
     return res.json({
