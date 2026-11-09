@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { vaultApi, cryptoApi } from '../services/api';
 import {
   Lock, Unlock, Plus, Trash2, KeyRound, FileText, CreditCard,
-  FolderLock, AlertCircle, Loader2, ChevronRight, X, Eye, ShieldCheck
+  FolderLock, AlertCircle, Loader2, ChevronRight, X, Eye, ShieldCheck,
+  Upload, Download, File, HardDrive
 } from 'lucide-react';
 
 const CATEGORY_META = {
   NOTE: { label: 'Catatan Rahasia', icon: FileText, color: 'text-blue-400' },
   CREDENTIAL: { label: 'Kredensial / Akun', icon: CreditCard, color: 'text-amber-400' },
-  DOCUMENT: { label: 'Dokumen Ringkas', icon: FolderLock, color: 'text-purple-400' },
+  DOCUMENT: { label: 'Dokumen / File', icon: FolderLock, color: 'text-purple-400' },
 };
 
 export default function VaultTab() {
@@ -16,13 +17,17 @@ export default function VaultTab() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+  const [addMode, setAddMode] = useState('text');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('NOTE');
   const [secretContent, setSecretContent] = useState('');
   const [vigenereKey, setVigenereKey] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileBase64, setFileBase64] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [decryptedContent, setDecryptedContent] = useState('');
   const [decryptKey, setDecryptKey] = useState('');
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => { loadItems(); }, []);
 
@@ -33,7 +38,51 @@ export default function VaultTab() {
     if (res.success) { setItems(res.data); } else { setError(res.message); }
   }
 
+  function handleFileChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Ukuran file maksimal 10 MB');
+      return;
+    }
+    setSelectedFile(file);
+    if (!title) setTitle(file.name.replace(/\.[^/.]+$/, ''));
+    const reader = new FileReader();
+    reader.onload = () => {
+      const b64 = reader.result.split(',')[1];
+      setFileBase64(b64);
+    };
+    reader.readAsDataURL(file);
+  }
+
   async function handleCreateItem() {
+    if (addMode === 'file') {
+      if (!title.trim() || !selectedFile || !fileBase64) {
+        setError('Judul dan berkas file wajib diisi');
+        return;
+      }
+      setError('');
+      setLoading(true);
+      const res = await vaultApi.uploadFile({
+        title: title.trim(),
+        category: 'DOCUMENT',
+        fileName: selectedFile.name,
+        fileType: selectedFile.type,
+        fileBase64
+      });
+      setLoading(false);
+      if (res.success) {
+        setShowAdd(false);
+        setTitle('');
+        setSelectedFile(null);
+        setFileBase64('');
+        loadItems();
+      } else {
+        setError(res.message);
+      }
+      return;
+    }
+
     if (!title.trim() || !secretContent.trim() || !vigenereKey.trim()) { setError('Semua field wajib diisi'); return; }
     setError(''); setLoading(true);
     const encRes = await cryptoApi.encryptMessage(secretContent, vigenereKey);
@@ -42,6 +91,38 @@ export default function VaultTab() {
     setLoading(false);
     if (res.success) { setShowAdd(false); setTitle(''); setSecretContent(''); setVigenereKey(''); loadItems(); }
     else { setError(res.message); }
+  }
+
+  async function handleDownloadFile(id) {
+    setDownloading(true);
+    setError('');
+    const res = await vaultApi.downloadFile(id);
+    setDownloading(false);
+    if (!res.success) {
+      setError(res.message || 'Gagal mengunduh file');
+      return;
+    }
+    const byteCharacters = atob(res.data.fileBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: res.data.fileType || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = res.data.fileName || 'vault-file';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function formatSize(bytes) {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i];
   }
 
   async function handleDelete(id) {
@@ -99,46 +180,99 @@ export default function VaultTab() {
 
       {showAdd && (
         <div className="p-5 bg-dark-900/60 border border-dark-700/50 rounded-2xl space-y-4">
-          <div className="flex items-center gap-2">
-            <Plus className="w-4 h-4 text-vault-400" />
-            <h3 className="font-semibold text-vault-400 text-sm">Tambah Item Baru</h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Plus className="w-4 h-4 text-vault-400" />
+              <h3 className="font-semibold text-vault-400 text-sm">Tambah Item Baru</h3>
+            </div>
+            <div className="flex bg-dark-950 p-1 rounded-xl border border-dark-800">
+              <button
+                type="button"
+                onClick={() => setAddMode('text')}
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${addMode === 'text' ? 'bg-vault-600 text-white' : 'text-dark-400 hover:text-white'}`}
+              >
+                Catatan / Teks
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddMode('file')}
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors flex items-center gap-1 ${addMode === 'file' ? 'bg-vault-600 text-white' : 'text-dark-400 hover:text-white'}`}
+              >
+                <Upload className="w-3 h-3" />
+                Berkas / File (PDF, dll)
+              </button>
+            </div>
           </div>
+
           <div>
             <label className="block text-xs text-dark-400 mb-1.5 uppercase tracking-wider font-medium">Judul</label>
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
               className="w-full px-3 py-2.5 bg-dark-900/80 text-white rounded-xl border border-dark-700/50 focus:border-vault-500/50 focus:outline-none text-sm"
-              placeholder="Contoh: Password Email Penting" />
+              placeholder={addMode === 'file' ? 'Contoh: Ijazah / Dokumen Rahasia' : 'Contoh: Password Email Penting'} />
           </div>
-          <div>
-            <label className="block text-xs text-dark-400 mb-1.5 uppercase tracking-wider font-medium">Kategori</label>
-            <div className="flex gap-2">
-              {Object.entries(CATEGORY_META).map(([key, meta]) => (
-                <button key={key} onClick={() => setCategory(key)}
-                  className={`flex-1 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all border ${category === key ? 'bg-vault-600/20 border-vault-600/30 text-vault-400' : 'bg-dark-900/40 border-dark-700/30 text-dark-400 hover:border-dark-600'}`}>
-                  <meta.icon className="w-3.5 h-3.5" />
-                  {meta.label.split(' / ')[0]}
-                </button>
-              ))}
+
+          {addMode === 'text' ? (
+            <>
+              <div>
+                <label className="block text-xs text-dark-400 mb-1.5 uppercase tracking-wider font-medium">Kategori</label>
+                <div className="flex gap-2">
+                  {Object.entries(CATEGORY_META).map(([key, meta]) => (
+                    <button key={key} onClick={() => setCategory(key)}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all border ${category === key ? 'bg-vault-600/20 border-vault-600/30 text-vault-400' : 'bg-dark-900/40 border-dark-700/30 text-dark-400 hover:border-dark-600'}`}>
+                      <meta.icon className="w-3.5 h-3.5" />
+                      {meta.label.split(' / ')[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-dark-400 mb-1.5 uppercase tracking-wider font-medium">Konten Rahasia (Plaintext)</label>
+                <textarea value={secretContent} onChange={(e) => setSecretContent(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-dark-900/80 text-white rounded-xl border border-dark-700/50 focus:border-vault-500/50 focus:outline-none text-sm"
+                  rows={3} placeholder="Data yang akan dienkripsi sebelum disimpan..." />
+              </div>
+              <div>
+                <label className="block text-xs text-dark-400 mb-1.5 uppercase tracking-wider font-medium">Kunci Kriptografi (Vigenere Key)</label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
+                  <input type="text" value={vigenereKey} onChange={(e) => setVigenereKey(e.target.value)}
+                    className="w-full pl-10 pr-3 py-2.5 bg-dark-900/80 text-white rounded-xl border border-dark-700/50 focus:border-vault-500/50 focus:outline-none text-sm"
+                    placeholder="Kunci unik untuk dekripsi nantinya..." />
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-dark-400 mb-1.5 uppercase tracking-wider font-medium">Pilih Berkas (PDF, DOCX, TXT, Gambar, dll - Maks 10 MB)</label>
+                <div className="border-2 border-dashed border-dark-700 hover:border-vault-500/50 rounded-xl p-4 text-center cursor-pointer transition-colors relative bg-dark-950/40">
+                  <input
+                    type="file"
+                    onChange={handleFileChange}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="w-8 h-8 text-vault-400" />
+                    {selectedFile ? (
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-white">{selectedFile.name}</p>
+                        <p className="text-xs text-dark-400">{formatSize(selectedFile.size)} • {selectedFile.type || 'Berkas'}</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-sm text-dark-300 font-medium">Klik atau seret file ke sini</p>
+                        <p className="text-xs text-dark-500 mt-0.5">Dienkripsi dengan ChaCha20-Poly1305</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-          <div>
-            <label className="block text-xs text-dark-400 mb-1.5 uppercase tracking-wider font-medium">Konten Rahasia (Plaintext)</label>
-            <textarea value={secretContent} onChange={(e) => setSecretContent(e.target.value)}
-              className="w-full px-3 py-2.5 bg-dark-900/80 text-white rounded-xl border border-dark-700/50 focus:border-vault-500/50 focus:outline-none text-sm"
-              rows={3} placeholder="Data yang akan dienkripsi sebelum disimpan..." />
-          </div>
-          <div>
-            <label className="block text-xs text-dark-400 mb-1.5 uppercase tracking-wider font-medium">Kunci Kriptografi (Vigenere Key)</label>
-            <div className="relative">
-              <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
-              <input type="text" value={vigenereKey} onChange={(e) => setVigenereKey(e.target.value)}
-                className="w-full pl-10 pr-3 py-2.5 bg-dark-900/80 text-white rounded-xl border border-dark-700/50 focus:border-vault-500/50 focus:outline-none text-sm"
-                placeholder="Kunci unik untuk dekripsi nantinya..." />
-            </div>
-          </div>
+          )}
+
           <button onClick={handleCreateItem} disabled={loading}
             className="w-full py-3 bg-vault-600 hover:bg-vault-500 disabled:bg-dark-800 disabled:text-dark-600 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-vault-600/20">
-            {loading ? (<><Loader2 className="w-4 h-4 animate-spin" />Menyimpan...</>) : (<><ShieldCheck className="w-4 h-4" />{'Enkripsi & Simpan ke Vault'}</>)}
+            {loading ? (<><Loader2 className="w-4 h-4 animate-spin" />Menyimpan & Mengenkripsi...</>) : (<><ShieldCheck className="w-4 h-4" />{'Enkripsi & Simpan ke Vault'}</>)}
           </button>
         </div>
       )}
@@ -162,7 +296,10 @@ export default function VaultTab() {
             </div>
           )}
           {items.map((item) => {
-            const meta = CATEGORY_META[item.category] || CATEGORY_META.NOTE;
+            const isFile = Boolean(item.fileName);
+            const meta = isFile
+              ? { label: 'Berkas Terenkripsi', icon: File, color: 'text-purple-400' }
+              : (CATEGORY_META[item.category] || CATEGORY_META.NOTE);
             const Icon = meta.icon;
             return (
               <div key={item.id}
@@ -173,7 +310,9 @@ export default function VaultTab() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-white text-sm truncate">{item.title}</p>
-                  <p className="text-[10px] text-dark-400 uppercase tracking-wider">{meta.label}</p>
+                  <p className="text-[10px] text-dark-400 uppercase tracking-wider">
+                    {isFile ? `Berkas • ${formatSize(item.fileSize)}` : meta.label}
+                  </p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
@@ -194,42 +333,83 @@ export default function VaultTab() {
               <div className="flex items-start justify-between">
                 <div>
                   <h4 className="text-lg font-bold text-white">{selectedItem.title}</h4>
-                  <span className={`inline-flex items-center gap-1 text-xs mt-1 px-2 py-0.5 rounded-lg bg-dark-800/60 ${(CATEGORY_META[selectedItem.category] || CATEGORY_META.NOTE).color}`}>
-                    {(() => { const I = (CATEGORY_META[selectedItem.category] || CATEGORY_META.NOTE).icon; return <I className="w-3 h-3" />; })()}
-                    {(CATEGORY_META[selectedItem.category] || CATEGORY_META.NOTE).label}
-                  </span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-lg bg-dark-800/60 ${selectedItem.fileName ? 'text-purple-400' : (CATEGORY_META[selectedItem.category] || CATEGORY_META.NOTE).color}`}>
+                      {selectedItem.fileName ? <File className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
+                      {selectedItem.fileName ? 'Berkas Terenkripsi' : (CATEGORY_META[selectedItem.category] || CATEGORY_META.NOTE).label}
+                    </span>
+                    {selectedItem.fileSize && (
+                      <span className="text-xs text-dark-500 font-mono">
+                        {formatSize(selectedItem.fileSize)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <Lock className="w-4 h-4 text-dark-500" />
               </div>
-              <div>
-                <label className="block text-[10px] text-dark-500 mb-1 uppercase tracking-wider">Data Terenkripsi (Ciphertext)</label>
-                <textarea readOnly value={selectedItem.encryptedData}
-                  className="w-full px-3 py-2 bg-dark-950/60 text-dark-500 font-mono text-[10px] rounded-xl border border-dark-800/50 resize-none" rows={3} />
-              </div>
-              <div className="border-t border-dark-700/30 pt-4 space-y-3">
-                <label className="block text-xs text-dark-400 uppercase tracking-wider font-medium">Dekripsi Konten</label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
-                    <input type="text" value={decryptKey} onChange={(e) => setDecryptKey(e.target.value)}
-                      placeholder="Masukkan kunci Vigenere..."
-                      className="w-full pl-10 pr-3 py-2.5 bg-dark-900/80 text-white rounded-xl border border-dark-700/50 focus:border-vault-500/50 focus:outline-none text-sm" />
+
+              {selectedItem.fileName ? (
+                <div className="p-4 bg-dark-950/40 rounded-xl border border-dark-800 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0">
+                      <File className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{selectedItem.fileName}</p>
+                      <p className="text-xs text-dark-400 font-mono">{selectedItem.fileType || 'application/octet-stream'}</p>
+                    </div>
                   </div>
-                  <button onClick={handleDecrypt} disabled={loading}
-                    className="px-4 py-2.5 bg-vault-600 hover:bg-vault-500 disabled:bg-dark-800 text-white rounded-xl text-sm font-medium flex items-center gap-2">
-                    <Unlock className="w-4 h-4" />Buka
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-dark-800/60">
+                    <HardDrive className="w-3.5 h-3.5 text-vault-400" />
+                    <span className="text-xs text-vault-300">Tersimpan terenkripsi dengan ChaCha20-Poly1305</span>
+                  </div>
+
+                  <button
+                    onClick={() => handleDownloadFile(selectedItem.id)}
+                    disabled={downloading}
+                    className="w-full py-2.5 bg-vault-600 hover:bg-vault-500 disabled:bg-dark-800 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-vault-600/20"
+                  >
+                    {downloading ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" />Mendekripsi & Mengunduh...</>
+                    ) : (
+                      <><Download className="w-4 h-4" />Dekripsi & Unduh Berkas Asli</>
+                    )}
                   </button>
                 </div>
-                {decryptedContent && (
-                  <div className="p-4 bg-vault-950/30 border border-vault-700/30 rounded-xl">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Eye className="w-3.5 h-3.5 text-vault-400" />
-                      <span className="text-xs text-vault-400 font-medium">Konten Terdekripsi</span>
-                    </div>
-                    <p className="text-white text-sm whitespace-pre-wrap">{decryptedContent}</p>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-[10px] text-dark-500 mb-1 uppercase tracking-wider">Data Terenkripsi (Ciphertext)</label>
+                    <textarea readOnly value={selectedItem.encryptedData}
+                      className="w-full px-3 py-2 bg-dark-950/60 text-dark-500 font-mono text-[10px] rounded-xl border border-dark-800/50 resize-none" rows={3} />
                   </div>
-                )}
-              </div>
+                  <div className="border-t border-dark-700/30 pt-4 space-y-3">
+                    <label className="block text-xs text-dark-400 uppercase tracking-wider font-medium">Dekripsi Konten</label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
+                        <input type="text" value={decryptKey} onChange={(e) => setDecryptKey(e.target.value)}
+                          placeholder="Masukkan kunci Vigenere..."
+                          className="w-full pl-10 pr-3 py-2.5 bg-dark-900/80 text-white rounded-xl border border-dark-700/50 focus:border-vault-500/50 focus:outline-none text-sm" />
+                      </div>
+                      <button onClick={handleDecrypt} disabled={loading}
+                        className="px-4 py-2.5 bg-vault-600 hover:bg-vault-500 disabled:bg-dark-800 text-white rounded-xl text-sm font-medium flex items-center gap-2">
+                        <Unlock className="w-4 h-4" />Buka
+                      </button>
+                    </div>
+                    {decryptedContent && (
+                      <div className="p-4 bg-vault-950/30 border border-vault-700/30 rounded-xl">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Eye className="w-3.5 h-3.5 text-vault-400" />
+                          <span className="text-xs text-vault-400 font-medium">Konten Terdekripsi</span>
+                        </div>
+                        <p className="text-white text-sm whitespace-pre-wrap">{decryptedContent}</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="h-full min-h-[300px] bg-dark-900/30 border border-dashed border-dark-700/30 rounded-2xl flex flex-col items-center justify-center text-dark-500 gap-2">

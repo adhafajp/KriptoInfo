@@ -51,8 +51,10 @@ router.post('/crypto/file/decrypt', requireAuth, crypto.decryptFile);
 
 // Vault endpoints are always scoped to the authenticated user.
 router.post('/vault', requireAuth, asyncHandler(vault.createVaultItem));
+router.post('/vault/upload', requireAuth, asyncHandler(vault.uploadVaultFile));
 router.get('/vault', requireAuth, asyncHandler(vault.listVaultItems));
 router.get('/vault/:id', requireAuth, asyncHandler(vault.getVaultItem));
+router.get('/vault/:id/download', requireAuth, asyncHandler(vault.downloadVaultFile));
 router.delete('/vault/:id', requireAuth, asyncHandler(vault.deleteVaultItem));
 
 // PNG LSB steganography with AES-GCM encrypted payload.

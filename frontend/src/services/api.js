@@ -76,6 +76,14 @@ export const vaultApi = {
       body: item
     }),
 
+  uploadFile: (fileData) =>
+    apiRequest('/vault/upload', {
+      method: 'POST',
+      body: fileData
+    }),
+
+  downloadFile: (id) => apiRequest(`/vault/${id}/download`),
+
   delete: (id) =>
     apiRequest(`/vault/${id}`, {
       method: 'DELETE'

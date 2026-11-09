@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { blockchainApi } from '../services/api';
 import {
-  Link2, Plus, ShieldCheck, ShieldAlert, AlertCircle, Loader2, Hash, Clock, ChevronDown
+  Link2, Plus, ShieldCheck, ShieldAlert, AlertCircle, Loader2, Hash, Clock, ChevronDown,
+  Upload, File, CheckCircle2
 } from 'lucide-react';
 
 export default function BlockchainTab() {
   const [blocks, setBlocks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [addMode, setAddMode] = useState('text'); // 'text' | 'file'
   const [dataInput, setDataInput] = useState('');
   const [verification, setVerification] = useState(null);
+
+  // File state
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileHash, setFileHash] = useState('');
+  const [hashingFile, setHashingFile] = useState(false);
 
   useEffect(() => { loadBlocks(); }, []);
 
@@ -20,7 +27,55 @@ export default function BlockchainTab() {
     if (res.success) { setBlocks(res.data); } else { setError(res.message); }
   }
 
+  async function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setHashingFile(true);
+    setError('');
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', buffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      setFileHash(hashHex);
+    } catch {
+      setError('Gagal menghitung SHA-256 file.');
+    } finally {
+      setHashingFile(false);
+    }
+  }
+
   async function handleAddBlock() {
+    if (addMode === 'file') {
+      if (!selectedFile || !fileHash) {
+        setError('Pilih berkas file terlebih dahulu.');
+        return;
+      }
+      setError('');
+      setLoading(true);
+      const res = await blockchainApi.add({
+        assetId: `file-${Date.now()}-${selectedFile.name.slice(0, 40)}`,
+        assetHash: fileHash,
+        metadata: JSON.stringify({
+          fileName: selectedFile.name,
+          fileSize: selectedFile.size,
+          fileType: selectedFile.type || 'unknown',
+          recordedAt: new Date().toISOString()
+        })
+      });
+      setLoading(false);
+      if (res.success) {
+        setSelectedFile(null);
+        setFileHash('');
+        loadBlocks();
+      } else {
+        setError(res.message);
+      }
+      return;
+    }
+
     if (!dataInput.trim()) { setError('Data blok tidak boleh kosong'); return; }
     setError(''); setLoading(true);
     const res = await blockchainApi.add(dataInput);
@@ -79,16 +134,80 @@ export default function BlockchainTab() {
       )}
 
       <div className="p-5 bg-dark-900/60 border border-dark-700/50 rounded-2xl space-y-4">
-        <div className="flex items-center gap-2">
-          <Plus className="w-4 h-4 text-vault-400" />
-          <h3 className="font-semibold text-vault-400 text-sm">Tambah Blok Baru</h3>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Plus className="w-4 h-4 text-vault-400" />
+            <h3 className="font-semibold text-vault-400 text-sm">Tambah Blok Baru</h3>
+          </div>
+          <div className="flex bg-dark-950 p-1 rounded-xl border border-dark-800">
+            <button
+              type="button"
+              onClick={() => setAddMode('text')}
+              className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${addMode === 'text' ? 'bg-vault-600 text-white' : 'text-dark-400 hover:text-white'}`}
+            >
+              Teks / Catatan
+            </button>
+            <button
+              type="button"
+              onClick={() => setAddMode('file')}
+              className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors flex items-center gap-1 ${addMode === 'file' ? 'bg-vault-600 text-white' : 'text-dark-400 hover:text-white'}`}
+            >
+              <Upload className="w-3 h-3" />
+              Berkas / File (PDF, dll)
+            </button>
+          </div>
         </div>
-        <textarea value={dataInput} onChange={(e) => setDataInput(e.target.value)}
-          className="w-full px-3 py-2.5 bg-dark-900/80 text-white rounded-xl border border-dark-700/50 focus:border-vault-500/50 focus:outline-none text-sm"
-          rows={2} placeholder="Masukkan data, catatan aset, atau transaksi..." />
-        <button onClick={handleAddBlock} disabled={loading}
+
+        {addMode === 'text' ? (
+          <textarea value={dataInput} onChange={(e) => setDataInput(e.target.value)}
+            className="w-full px-3 py-2.5 bg-dark-900/80 text-white rounded-xl border border-dark-700/50 focus:border-vault-500/50 focus:outline-none text-sm"
+            rows={2} placeholder="Masukkan data, catatan aset, atau transaksi..." />
+        ) : (
+          <div className="space-y-3">
+            <div className="border-2 border-dashed border-dark-700 hover:border-vault-500/50 rounded-xl p-4 text-center cursor-pointer transition-colors relative bg-dark-950/40">
+              <input
+                type="file"
+                onChange={handleFileSelect}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
+              <div className="flex flex-col items-center gap-2">
+                <Upload className="w-8 h-8 text-vault-400" />
+                {selectedFile ? (
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-white">{selectedFile.name}</p>
+                    <p className="text-xs text-dark-400">{(selectedFile.size / 1024).toFixed(1)} KB • {selectedFile.type || 'Berkas'}</p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-dark-300 font-medium">Klik atau seret file ke sini</p>
+                    <p className="text-xs text-dark-500 mt-0.5">Sistem akan otomatis menghitung hash SHA-256 berkas</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {hashingFile && (
+              <div className="flex items-center gap-2 text-dark-400 text-xs">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-vault-400" />
+                <span>Menghitung sidik jari kriptografi (SHA-256)...</span>
+              </div>
+            )}
+
+            {fileHash && (
+              <div className="p-3 bg-dark-950/60 rounded-xl border border-dark-800 space-y-1">
+                <div className="flex items-center gap-1.5 text-xs text-vault-400 font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Hash Berkas SHA-256 Terkalkulasi:</span>
+                </div>
+                <p className="font-mono text-[11px] text-vault-300 break-all">{fileHash}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <button onClick={handleAddBlock} disabled={loading || hashingFile}
           className="w-full py-3 bg-vault-600 hover:bg-vault-500 disabled:bg-dark-800 disabled:text-dark-600 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-vault-600/20">
-          {loading ? (<><Loader2 className="w-4 h-4 animate-spin" />Menambang...</>) : (<><Plus className="w-4 h-4" />Tambah ke Rantai</>)}
+          {loading ? (<><Loader2 className="w-4 h-4 animate-spin" />Menambang ke Blockchain...</>) : (<><Plus className="w-4 h-4" />Catat Integritas ke Blockchain</>)}
         </button>
       </div>
 
