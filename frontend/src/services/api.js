@@ -151,6 +151,12 @@ export const auditApi = {
 export const authApi = {
   me: () => apiRequest('/auth/me'),
 
+  verifyFace: (username, faceDescriptor) =>
+    apiRequest('/auth/verify-face', {
+      method: 'POST',
+      body: { username, faceDescriptor }
+    }),
+
   challenge: (username) =>
     apiRequest('/auth/challenge', {
       method: 'POST',

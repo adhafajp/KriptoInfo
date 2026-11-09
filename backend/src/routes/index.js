@@ -40,6 +40,7 @@ router.get('/health', asyncHandler(async (req, res) => {
 router.post('/auth/enroll', authLimiter, asyncHandler(auth.enroll));
 router.post('/auth/challenge', authLimiter, asyncHandler(auth.createChallenge));
 router.post('/auth/login', authLimiter, asyncHandler(auth.login));
+router.post('/auth/verify-face', asyncHandler(auth.verifyFacePreview));
 router.get('/auth/me', requireAuth, asyncHandler(auth.me));
 router.post('/auth/logout', requireAuth, asyncHandler(auth.logout));
 

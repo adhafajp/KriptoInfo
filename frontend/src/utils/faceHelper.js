@@ -76,6 +76,29 @@ export function computeDisplayBox(box, videoElement) {
   return { left, top, width, height };
 }
 
+// Ekstraksi cepat descriptor biometrik untuk validasi identitas real-time
+export async function extractQuickDescriptor(videoElement) {
+  if (!videoElement || videoElement.readyState < 2 || !videoElement.videoWidth) return null;
+  await loadFaceModels();
+
+  try {
+    const detection = await faceapi
+      .detectSingleFace(
+        videoElement,
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
+      )
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
+    if (!detection || !detection.descriptor) return null;
+    const descriptor = Array.from(detection.descriptor);
+    if (descriptor.length !== 128 || !descriptor.every(Number.isFinite)) return null;
+    return l2Normalize(descriptor);
+  } catch {
+    return null;
+  }
+}
+
 // Mengaktifkan kamera.
 
 export async function startFaceCamera(videoElement) {

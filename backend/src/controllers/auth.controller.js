@@ -28,9 +28,17 @@ function passwordProblem(password, username) {
   return null;
 }
 
+function l2Normalize(vector) {
+  const norm = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
+  if (norm === 0) return vector;
+  return vector.map(val => val / norm);
+}
+
 function faceDistance(first, second) {
-  const sum = first.reduce((total, value, index) => {
-    return total + (value - second[index]) ** 2;
+  const norm1 = l2Normalize(first);
+  const norm2 = l2Normalize(second);
+  const sum = norm1.reduce((total, value, index) => {
+    return total + (value - norm2[index]) ** 2;
   }, 0);
   return Math.sqrt(sum);
 }
@@ -180,7 +188,7 @@ export async function login(req, res) {
     const storedTemplate = JSON.parse(aesDecrypt(JSON.parse(user.faceTemplate)).toString('utf8'));
     distanceVal = faceDistance(storedTemplate, faceDescriptor);
     const configuredThreshold = Number(process.env.FACE_MATCH_THRESHOLD);
-    const threshold = Number.isFinite(configuredThreshold) && configuredThreshold > 0 ? configuredThreshold : 0.45;
+    const threshold = Number.isFinite(configuredThreshold) && configuredThreshold > 0 ? configuredThreshold : 0.35;
     faceOk = Number.isFinite(distanceVal) && distanceVal <= threshold;
   } catch {
     faceOk = false;
@@ -241,4 +249,47 @@ export async function logout(req, res) {
   });
   await audit(req.user?.id, 'LOGOUT', 'SUCCESS', req);
   return res.json({ success: true, message: 'Logout berhasil.' });
+}
+
+// Verifikasi real-time biometrik wajah terhadap username untuk visual feedback
+export async function verifyFacePreview(req, res) {
+  const { username, faceDescriptor } = req.body;
+  if (typeof username !== 'string' || !username.trim() || !validFaceDescriptor(faceDescriptor)) {
+    return res.status(400).json({ success: false, message: 'Data verifikasi tidak valid.' });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { username: username.trim() }
+  });
+
+  if (!user || !user.faceTemplate) {
+    return res.json({
+      success: true,
+      data: {
+        userFound: false,
+        match: false,
+        message: 'Username belum terdaftar.'
+      }
+    });
+  }
+
+  try {
+    const storedTemplate = JSON.parse(aesDecrypt(JSON.parse(user.faceTemplate)).toString('utf8'));
+    const distanceVal = faceDistance(storedTemplate, faceDescriptor);
+    const configuredThreshold = Number(process.env.FACE_MATCH_THRESHOLD);
+    const threshold = Number.isFinite(configuredThreshold) && configuredThreshold > 0 ? configuredThreshold : 0.35;
+    const match = Number.isFinite(distanceVal) && distanceVal <= threshold;
+
+    return res.json({
+      success: true,
+      data: {
+        userFound: true,
+        match,
+        distance: Number(distanceVal.toFixed(4)),
+        threshold
+      }
+    });
+  } catch {
+    return res.status(500).json({ success: false, message: 'Gagal memproses biometrik wajah.' });
+  }
 }

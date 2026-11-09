@@ -8,6 +8,7 @@ import {
   startFaceCamera,
   captureFaceDescriptor,
   detectFaceBox,
+  extractQuickDescriptor,
   computeDisplayBox,
   stopFaceCamera
 } from '../utils/faceHelper';
@@ -51,6 +52,7 @@ export default function LoginPage({ onLoginSuccess }) {
     'Kamera belum diaktifkan.'
   );
   const [detectedFaceBox, setDetectedFaceBox] = useState(null);
+  const [faceMatchInfo, setFaceMatchInfo] = useState({ status: 'no_user' });
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -65,6 +67,7 @@ export default function LoginPage({ onLoginSuccess }) {
 
     setCameraActive(false);
     setDetectedFaceBox(null);
+    setFaceMatchInfo({ status: 'no_user' });
     setFaceStatus('Kamera belum diaktifkan.');
   }
 
@@ -127,6 +130,55 @@ export default function LoginPage({ onLoginSuccess }) {
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [cameraActive]);
+
+  // Loop pencocokan biometrik wajah terhadap username yang diketik
+  useEffect(() => {
+    let active = true;
+    let timer = null;
+    const cleanUser = username.trim();
+
+    if (!cleanUser || mode === 'enroll' || !cameraActive) {
+      setFaceMatchInfo({ status: 'no_user' });
+      return;
+    }
+
+    async function checkFaceIdentity() {
+      if (!active || !cameraActive || !videoRef.current) return;
+      try {
+        if (videoRef.current.readyState >= 2 && videoRef.current.videoWidth > 0) {
+          const descriptor = await extractQuickDescriptor(videoRef.current);
+          if (active && descriptor) {
+            const res = await authApi.verifyFace(cleanUser, descriptor);
+            if (active && res.success && res.data) {
+              if (res.data.userFound) {
+                setFaceMatchInfo({
+                  status: res.data.match ? 'matched' : 'mismatched',
+                  distance: res.data.distance,
+                  threshold: res.data.threshold,
+                  username: cleanUser
+                });
+              } else {
+                setFaceMatchInfo({ status: 'user_not_found', username: cleanUser });
+              }
+            }
+          }
+        }
+      } catch {
+        // error loop dilewati
+      }
+
+      if (active && cameraActive) {
+        timer = setTimeout(checkFaceIdentity, 800);
+      }
+    }
+
+    timer = setTimeout(checkFaceIdentity, 300);
+
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [username, cameraActive, mode]);
 
   useEffect(() => {
     let active = true;
@@ -227,6 +279,11 @@ export default function LoginPage({ onLoginSuccess }) {
 
     if (!daemonDongle) {
       setError('Colokkan USB dongle (flashdisk) ke komputer terlebih dahulu.');
+      return;
+    }
+
+    if (faceMatchInfo?.status === 'mismatched') {
+      setError(`Wajah di kamera tidak cocok dengan pemilik akun @${username.trim()}. Akses ditolak.`);
       return;
     }
 
@@ -452,44 +509,136 @@ export default function LoginPage({ onLoginSuccess }) {
                   )}
 
                   {/* Dynamic Face Tracking Reticle - Smoothly follows user face */}
-                  {cameraActive && detectedFaceBox && (
-                    <div
-                      className="absolute pointer-events-none transition-all duration-100 ease-out z-20"
-                      style={{
-                        left: `${detectedFaceBox.left}px`,
-                        top: `${detectedFaceBox.top}px`,
-                        width: `${detectedFaceBox.width}px`,
-                        height: `${detectedFaceBox.height}px`,
-                      }}
-                    >
-                      {/* 4 Glowing Corner Brackets */}
-                      <div className="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-vault-400 shadow-[0_0_10px_#22c55e]" />
-                      <div className="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-vault-400 shadow-[0_0_10px_#22c55e]" />
-                      <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-vault-400 shadow-[0_0_10px_#22c55e]" />
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-vault-400 shadow-[0_0_10px_#22c55e]" />
+                  {cameraActive && detectedFaceBox && (() => {
+                    const isMatched = faceMatchInfo.status === 'matched';
+                    const isMismatched = faceMatchInfo.status === 'mismatched';
+                    const isChecking = faceMatchInfo.status === 'checking';
+                    const isUserNotFound = faceMatchInfo.status === 'user_not_found';
 
-                      {/* Laser Scan Line moving up and down */}
-                      <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-vault-400 to-transparent shadow-[0_0_10px_#22c55e] animate-hud-scan" />
+                    const borderColor = isMatched
+                      ? 'border-vault-400'
+                      : isMismatched
+                      ? 'border-red-500'
+                      : isChecking
+                      ? 'border-yellow-400'
+                      : isUserNotFound
+                      ? 'border-amber-500'
+                      : 'border-cyan-400';
 
-                      {/* Center Target Crosshair */}
-                      <div className="absolute inset-0 flex items-center justify-center opacity-40">
-                        <div className="w-3 h-0.5 bg-vault-400" />
-                        <div className="h-3 w-0.5 bg-vault-400 absolute" />
+                    const shadowColor = isMatched
+                      ? 'shadow-[0_0_12px_#22c55e]'
+                      : isMismatched
+                      ? 'shadow-[0_0_14px_#ef4444]'
+                      : isChecking
+                      ? 'shadow-[0_0_10px_#eab308]'
+                      : isUserNotFound
+                      ? 'shadow-[0_0_10px_#f59e0b]'
+                      : 'shadow-[0_0_10px_#06b6d4]';
+
+                    const scanColor = isMatched
+                      ? 'from-transparent via-vault-400 to-transparent shadow-[0_0_10px_#22c55e]'
+                      : isMismatched
+                      ? 'from-transparent via-red-500 to-transparent shadow-[0_0_10px_#ef4444]'
+                      : isChecking
+                      ? 'from-transparent via-yellow-400 to-transparent shadow-[0_0_10px_#eab308]'
+                      : 'from-transparent via-cyan-400 to-transparent shadow-[0_0_10px_#06b6d4]';
+
+                    const crosshairColor = isMatched
+                      ? 'bg-vault-400'
+                      : isMismatched
+                      ? 'bg-red-500'
+                      : isChecking
+                      ? 'bg-yellow-400'
+                      : 'bg-cyan-400';
+
+                    return (
+                      <div
+                        className="absolute pointer-events-none transition-all duration-100 ease-out z-20"
+                        style={{
+                          left: `${detectedFaceBox.left}px`,
+                          top: `${detectedFaceBox.top}px`,
+                          width: `${detectedFaceBox.width}px`,
+                          height: `${detectedFaceBox.height}px`,
+                        }}
+                      >
+                        {/* 4 Corner Brackets */}
+                        <div className={`absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 ${borderColor} ${shadowColor}`} />
+                        <div className={`absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 ${borderColor} ${shadowColor}`} />
+                        <div className={`absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 ${borderColor} ${shadowColor}`} />
+                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 ${borderColor} ${shadowColor}`} />
+
+                        {/* Laser Scan Line moving up and down */}
+                        <div className={`absolute left-0 right-0 h-0.5 bg-gradient-to-r ${scanColor} animate-hud-scan`} />
+
+                        {/* Center Target Crosshair */}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-40">
+                          <div className={`w-3 h-0.5 ${crosshairColor}`} />
+                          <div className={`h-3 w-0.5 ${crosshairColor} absolute`} />
+                        </div>
+
+                        {/* Top HUD Tag */}
+                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 rounded bg-black/90 border border-dark-700 flex items-center gap-1.5 shadow-lg">
+                          {isMatched ? (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-vault-400 animate-ping" />
+                              <span className="text-[9px] font-mono font-bold tracking-wider text-vault-300">
+                                WAJAH COCOK: @{faceMatchInfo.username}
+                              </span>
+                            </>
+                          ) : isMismatched ? (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                              <span className="text-[9px] font-mono font-bold tracking-wider text-red-400">
+                                BUKAN PEMILIK VAULT
+                              </span>
+                            </>
+                          ) : isChecking ? (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+                              <span className="text-[9px] font-mono font-bold tracking-wider text-yellow-300">
+                                MEMERIKSA BIOMETRIK...
+                              </span>
+                            </>
+                          ) : isUserNotFound ? (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                              <span className="text-[9px] font-mono font-bold tracking-wider text-amber-300">
+                                USER TIDAK DITEMUKAN
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                              <span className="text-[9px] font-mono font-bold tracking-wider text-cyan-300">
+                                {mode === 'enroll' ? 'SAMPEL BIOMETRIK' : 'SUBJEK TERDETEKSI'}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Bottom HUD Tag */}
+                        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 rounded bg-black/85 border border-dark-800 text-[8px] font-mono text-dark-300 flex items-center gap-2">
+                          {isMatched ? (
+                            <>
+                              <span>STATUS: <strong className="text-vault-400">TERVERIFIKASI</strong></span>
+                              <span className="text-dark-500">DIST: {faceMatchInfo.distance}</span>
+                            </>
+                          ) : isMismatched ? (
+                            <>
+                              <span>STATUS: <strong className="text-red-400 font-bold">AKSES DITOLAK</strong></span>
+                              <span className="text-dark-400">DIST: {faceMatchInfo.distance} &gt; {faceMatchInfo.threshold}</span>
+                            </>
+                          ) : isChecking ? (
+                            <span className="text-yellow-400">Mencocokkan dengan @{username.trim()}...</span>
+                          ) : mode === 'enroll' ? (
+                            <span>Posisikan wajah di tengah</span>
+                          ) : (
+                            <span className="text-dark-400">Masukkan username untuk identifikasi</span>
+                          )}
+                        </div>
                       </div>
-
-                      {/* Top HUD Tag */}
-                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 rounded bg-black/85 border border-vault-500/60 flex items-center gap-1.5 shadow-[0_0_10px_rgba(34,197,94,0.3)]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-vault-400 animate-ping" />
-                        <span className="text-[9px] font-mono font-bold tracking-widest text-vault-300">TARGET LOCKED</span>
-                      </div>
-
-                      {/* Bottom HUD Tag */}
-                      <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 rounded bg-black/80 border border-dark-700/80 text-[8px] font-mono text-dark-300 flex items-center gap-2">
-                        <span>CONF: <strong className="text-vault-400">{detectedFaceBox.score}%</strong></span>
-                        <span className="text-dark-500">POS: {detectedFaceBox.left},{detectedFaceBox.top}</span>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Searching Indicator when no face detected yet */}
                   {cameraActive && !detectedFaceBox && (
