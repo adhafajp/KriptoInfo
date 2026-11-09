@@ -48,6 +48,7 @@ export default function LoginPage({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
 
   const [cameraActive, setCameraActive] = useState(false);
+  const [cameraStarting, setCameraStarting] = useState(false);
   const [faceStatus, setFaceStatus] = useState(
     'Kamera belum diaktifkan.'
   );
@@ -56,6 +57,7 @@ export default function LoginPage({ onLoginSuccess }) {
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const manualStoppedRef = useRef(false);
 
   function closeCamera() {
     stopFaceCamera(streamRef.current);
@@ -66,9 +68,15 @@ export default function LoginPage({ onLoginSuccess }) {
     }
 
     setCameraActive(false);
+    setCameraStarting(false);
     setDetectedFaceBox(null);
     setFaceMatchInfo({ status: 'no_user' });
     setFaceStatus('Kamera belum diaktifkan.');
+  }
+
+  function handleStopCamera() {
+    manualStoppedRef.current = true;
+    closeCamera();
   }
 
   useEffect(() => {
@@ -232,8 +240,10 @@ export default function LoginPage({ onLoginSuccess }) {
   }, [username]);
 
   async function handleStartCamera() {
+    if (cameraActive || cameraStarting) return;
     setError('');
     setMessage('');
+    setCameraStarting(true);
     setFaceStatus('Memuat model pengenalan wajah...');
 
     try {
@@ -247,8 +257,23 @@ export default function LoginPage({ onLoginSuccess }) {
     } catch (err) {
       closeCamera();
       setError(`Gagal mengaktifkan kamera: ${err.message}`);
+    } finally {
+      setCameraStarting(false);
     }
   }
+
+  // Smart Auto-Start: nyalakan kamera saat user mengetik username
+  useEffect(() => {
+    const clean = username.trim();
+    if (clean.length >= 3 && !cameraActive && !cameraStarting && !manualStoppedRef.current) {
+      handleStartCamera();
+    }
+  }, [username, cameraActive, cameraStarting]);
+
+  // Reset status manual stop jika user berpindah mode
+  useEffect(() => {
+    manualStoppedRef.current = false;
+  }, [mode]);
 
   async function getCurrentFaceDescriptor() {
     if (!cameraActive || !videoRef.current) {
@@ -476,13 +501,51 @@ export default function LoginPage({ onLoginSuccess }) {
             <div className="lg:w-[45%] p-5 bg-dark-950/40 border-b lg:border-b-0 lg:border-r border-dark-800/30 flex flex-col justify-between gap-4">
 
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <ScanFace className="w-4 h-4 text-vault-400" />
-                  <span className="text-white font-medium text-sm">Biometric Verification</span>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <ScanFace className="w-4 h-4 text-vault-400" />
+                    <span className="text-white font-medium text-sm">Biometric Scanner</span>
+                  </div>
+                  {/* Single Sleek Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={cameraActive ? handleStopCamera : () => { manualStoppedRef.current = false; handleStartCamera(); }}
+                    disabled={loading || cameraStarting}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all border ${
+                      cameraActive
+                        ? 'bg-dark-900/90 text-dark-300 hover:text-red-400 border-dark-700/80 hover:border-red-800/60'
+                        : 'bg-vault-600/20 text-vault-300 hover:bg-vault-600/30 border-vault-500/40 shadow-sm'
+                    }`}
+                  >
+                    {cameraStarting ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-vault-400" />
+                        <span>Memuat...</span>
+                      </>
+                    ) : cameraActive ? (
+                      <>
+                        <CameraOff className="w-3.5 h-3.5 text-red-400" />
+                        <span>Matikan</span>
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="w-3.5 h-3.5 text-vault-400" />
+                        <span>Aktifkan</span>
+                      </>
+                    )}
+                  </button>
                 </div>
 
-                {/* Camera feed */}
-                <div className="relative w-full aspect-[4/3] rounded-xl bg-black/60 overflow-hidden border border-dark-800/50 flex items-center justify-center">
+                {/* Camera feed (Click-to-Activate when inactive) */}
+                <div
+                  onClick={!cameraActive && !cameraStarting ? () => { manualStoppedRef.current = false; handleStartCamera(); } : undefined}
+                  className={`relative w-full aspect-[4/3] rounded-xl overflow-hidden border transition-all flex items-center justify-center ${
+                    cameraActive
+                      ? 'bg-black/80 border-dark-700/80'
+                      : 'bg-dark-950/70 border-dark-800/80 hover:border-vault-500/50 cursor-pointer group hover:bg-dark-900/40'
+                  }`}
+                  title={!cameraActive ? 'Klik untuk mengaktifkan pemindai kamera' : undefined}
+                >
                   <video
                     ref={videoRef}
                     autoPlay
@@ -492,9 +555,27 @@ export default function LoginPage({ onLoginSuccess }) {
                   />
 
                   {!cameraActive && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-dark-500 gap-2">
-                      <Camera className="w-8 h-8 text-dark-600" />
-                      <span className="text-xs">Kamera belum aktif</span>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 gap-2.5 select-none">
+                      {cameraStarting ? (
+                        <div className="flex flex-col items-center gap-2 text-vault-400">
+                          <Loader2 className="w-8 h-8 animate-spin" />
+                          <span className="text-xs font-mono font-medium">Memuat Model AI & Kamera...</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 group-hover:scale-105 transition-transform">
+                          <div className="w-12 h-12 rounded-2xl bg-dark-900/80 border border-dark-700 group-hover:border-vault-500/50 flex items-center justify-center text-dark-400 group-hover:text-vault-400 transition-colors shadow-lg">
+                            <ScanFace className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-dark-200 group-hover:text-vault-300 transition-colors">
+                              Klik untuk Aktifkan Kamera
+                            </p>
+                            <p className="text-[10px] text-dark-500 mt-0.5">
+                              atau ketik username untuk mulai otomatis
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -656,32 +737,21 @@ export default function LoginPage({ onLoginSuccess }) {
                   )}
                 </div>
 
-                {/* Camera status + controls */}
-                <div className="flex items-center justify-between mt-2.5">
+                {/* Camera status telemetry */}
+                <div className="flex items-center justify-between mt-2.5 px-0.5">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cameraActive ? 'bg-vault-400 animate-pulse' : 'bg-dark-600'}`} />
+                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                      cameraActive ? 'bg-vault-400 animate-pulse' : cameraStarting ? 'bg-yellow-400 animate-ping' : 'bg-dark-600'
+                    }`} />
                     <p className="text-[11px] text-dark-400 truncate">{faceStatus}</p>
                   </div>
-                  <div className="flex gap-1.5 flex-shrink-0 ml-2">
-                    <button
-                      type="button"
-                      onClick={handleStartCamera}
-                      disabled={loading || cameraActive}
-                      className="px-2.5 py-1.5 bg-vault-600 hover:bg-vault-500 disabled:bg-dark-800 disabled:text-dark-600 text-white rounded-lg text-xs font-medium flex items-center gap-1.5"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      Aktifkan
-                    </button>
-                    <button
-                      type="button"
-                      onClick={closeCamera}
-                      disabled={loading || !cameraActive}
-                      className="px-2.5 py-1.5 bg-dark-800 hover:bg-dark-700 disabled:opacity-40 text-dark-300 rounded-lg text-xs font-medium flex items-center gap-1.5"
-                    >
-                      <CameraOff className="w-3.5 h-3.5" />
-                      Matikan
-                    </button>
-                  </div>
+                  <span className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                    cameraActive
+                      ? 'bg-vault-500/10 border-vault-500/30 text-vault-400'
+                      : 'bg-dark-900 border-dark-800 text-dark-500'
+                  }`}>
+                    {cameraActive ? 'ONLINE' : 'STANDBY'}
+                  </span>
                 </div>
               </div>
 
