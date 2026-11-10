@@ -42,18 +42,11 @@ export default function MessageTab() {
     setError('');
     setResult(null);
     if (!text.trim() || !vigenereKey.trim()) {
-      setError('Payload dan kunci Vigenere wajib diisi');
-      return;
-    }
-    let payload;
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      setError('Payload harus berupa JSON valid');
+      setError('Ciphertext dan kunci Vigenere wajib diisi');
       return;
     }
     setLoading(true);
-    const res = await cryptoApi.decryptMessage(payload, vigenereKey);
+    const res = await cryptoApi.decryptMessage(text.trim(), vigenereKey);
     setLoading(false);
     if (res.success) {
       setResult(res.data);
@@ -64,7 +57,7 @@ export default function MessageTab() {
 
   function handleCopy() {
     const textToCopy = mode === 'encrypt'
-      ? JSON.stringify(result.payload, null, 2)
+      ? (result.ciphertext || JSON.stringify(result.payload, null, 2))
       : result.text;
     navigator.clipboard.writeText(textToCopy);
     setCopied(true);
@@ -119,14 +112,14 @@ export default function MessageTab() {
         <div className="space-y-4">
           <div>
             <label className="block text-xs text-dark-400 mb-1.5 uppercase tracking-wider font-medium">
-              {mode === 'encrypt' ? 'Teks Asli (Plaintext)' : 'Payload JSON (Ciphertext)'}
+              {mode === 'encrypt' ? 'Teks Asli (Plaintext)' : 'Ciphertext (Teks Terenkripsi)'}
             </label>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               className="w-full px-3 py-2.5 bg-dark-900/60 text-white rounded-xl border border-dark-700/50 focus:border-vault-500/50 focus:outline-none text-sm font-mono"
               rows={mode === 'encrypt' ? 5 : 7}
-              placeholder={mode === 'encrypt' ? 'Masukkan teks yang ingin dienkripsi...' : 'Paste JSON payload hasil enkripsi...'}
+              placeholder={mode === 'encrypt' ? 'Masukkan teks yang ingin dienkripsi...' : 'Paste ciphertext hasil enkripsi...'}
             />
           </div>
 
@@ -198,9 +191,9 @@ export default function MessageTab() {
               {mode === 'encrypt' ? (
                 <textarea
                   readOnly
-                  value={JSON.stringify(result.payload, null, 2)}
-                  className="w-full px-3 py-2 bg-transparent text-vault-300 font-mono text-xs border-0 focus:outline-none resize-none"
-                  rows={10}
+                  value={result.ciphertext || JSON.stringify(result.payload, null, 2)}
+                  className="w-full px-3 py-2 bg-transparent text-vault-300 font-mono text-xs border-0 focus:outline-none resize-none break-all"
+                  rows={8}
                 />
               ) : (
                 <div className="px-3 py-3 text-vault-300 text-sm">

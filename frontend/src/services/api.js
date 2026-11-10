@@ -49,7 +49,11 @@ export const cryptoApi = {
   decryptMessage: (payload, vigenereKey) =>
     apiRequest('/crypto/message/decrypt', {
       method: 'POST',
-      body: { payload, vigenereKey }
+      body: {
+        ciphertext: typeof payload === 'string' ? payload : undefined,
+        payload: typeof payload === 'object' ? payload : undefined,
+        vigenereKey
+      }
     }),
 
   encryptFile: (fileBase64) =>

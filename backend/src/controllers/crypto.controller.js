@@ -14,17 +14,74 @@ export function encryptMessage(req, res) {
   }
   const firstLayer = vigenereEncrypt(text, vigenereKey);
   const encrypted = aesEncrypt(Buffer.from(firstLayer, 'utf8'));
-  return res.json({ success: true, data: { algorithm: 'Vigenere + AES-256-GCM', payload: encrypted } });
+
+  // Pack IV (12B) + authTag (16B) + ciphertext menjadi satu string Base64 tunggal
+  const ivBuf = Buffer.from(encrypted.iv, 'base64');
+  const tagBuf = Buffer.from(encrypted.authTag, 'base64');
+  const cipherBuf = Buffer.from(encrypted.ciphertext, 'base64');
+  const packedToken = Buffer.concat([ivBuf, tagBuf, cipherBuf]).toString('base64');
+
+  return res.json({
+    success: true,
+    data: {
+      algorithm: 'Vigenere + AES-256-GCM',
+      ciphertext: packedToken,
+      payload: encrypted
+    }
+  });
 }
 
 export function decryptMessage(req, res) {
-  const { payload, vigenereKey } = req.body;
-  if (!payload || typeof vigenereKey !== 'string') {
-    return res.status(400).json({ success: false, message: 'payload dan vigenereKey wajib diisi.' });
+  const { payload, ciphertext, vigenereKey } = req.body;
+  const rawInput = ciphertext || payload;
+  if (!rawInput || typeof vigenereKey !== 'string') {
+    return res.status(400).json({ success: false, message: 'ciphertext/payload dan vigenereKey wajib diisi.' });
   }
-  const decryptedLayer = aesDecrypt(payload).toString('utf8');
-  const text = vigenereDecrypt(decryptedLayer, vigenereKey);
-  return res.json({ success: true, data: { text } });
+
+  let aesPayload;
+  if (typeof rawInput === 'string') {
+    const trimmed = rawInput.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        aesPayload = JSON.parse(trimmed);
+        if (aesPayload.payload) aesPayload = aesPayload.payload;
+      } catch {
+        // Abaikan parse error, coba parse sebagai packed Base64
+      }
+    }
+
+    if (!aesPayload) {
+      try {
+        const packedBuf = Buffer.from(trimmed, 'base64');
+        if (packedBuf.length < 28) {
+          return res.status(400).json({ success: false, message: 'Ciphertext tidak valid atau terlalu pendek.' });
+        }
+        const iv = packedBuf.subarray(0, 12).toString('base64');
+        const authTag = packedBuf.subarray(12, 28).toString('base64');
+        const cipher = packedBuf.subarray(28).toString('base64');
+        aesPayload = { iv, authTag, ciphertext: cipher };
+      } catch {
+        return res.status(400).json({ success: false, message: 'Ciphertext Base64 tidak valid.' });
+      }
+    }
+  } else if (typeof rawInput === 'object') {
+    aesPayload = rawInput.payload || rawInput;
+  }
+
+  if (!aesPayload || !aesPayload.iv || !aesPayload.authTag || !aesPayload.ciphertext) {
+    return res.status(400).json({ success: false, message: 'Format data terenkripsi tidak dikenali.' });
+  }
+
+  try {
+    const decryptedLayer = aesDecrypt(aesPayload).toString('utf8');
+    const text = vigenereDecrypt(decryptedLayer, vigenereKey);
+    return res.json({ success: true, data: { text } });
+  } catch (err) {
+    return res.status(400).json({
+      success: false,
+      message: 'Dekripsi gagal: Kunci Vigenere salah atau ciphertext telah dirusak.'
+    });
+  }
 }
 
 export function encryptFile(req, res) {
