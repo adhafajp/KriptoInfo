@@ -510,7 +510,7 @@ export default function CryptoToolModal({ isOpen, onClose }) {
 
         {/* Footer */}
         <div className="px-6 py-3 bg-dark-900/60 border-t border-dark-800 text-[11px] text-dark-500 flex justify-between items-center">
-          <span className="font-mono">KryptoInfo Cryptographic Engine Suite</span>
+          <span className="font-mono">Pikatan Cryptographic Engine Suite</span>
           <button
             onClick={onClose}
             className="px-3 py-1 bg-dark-800 hover:bg-dark-700 text-dark-200 rounded-lg text-xs font-medium transition-colors"

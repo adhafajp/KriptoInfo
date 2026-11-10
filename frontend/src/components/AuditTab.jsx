@@ -77,13 +77,13 @@ export default function AuditTab() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-white tracking-tight">Security Audit & Forensic Trail</h2>
+              <h2 className="text-xl font-bold text-white tracking-tight">Log Aktivitas</h2>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-vault-500/10 text-vault-400 border border-vault-500/20">
-                WORM LOG
+                AUDIT LOG
               </span>
             </div>
             <p className="text-xs text-dark-400 mt-1 max-w-xl">
-              Pencatatan aktivitas kriptografis terisolasi per pengguna. Setiap operasi enkripsi, autentikasi tiga lapis, dan penambahan blok blockchain direkam untuk audit keamanan.
+              Pencatatan riwayat aktivitas sistem. Setiap operasi autentikasi, enkripsi berkas, dan verifikasi blok tercatat untuk pemantauan keamanan.
             </p>
           </div>
         </div>

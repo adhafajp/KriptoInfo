@@ -521,8 +521,8 @@ export default function LoginPage({ onLoginSuccess }) {
               <Shield className="w-5 h-5 text-vault-600 dark:text-vault-400" strokeWidth={1.5} />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight leading-tight">KryptoInfo</h1>
-              <p className="text-vault-600 dark:text-vault-400/80 text-[10px] font-medium tracking-widest uppercase">Secure Digital Vault</p>
+              <h1 className="text-xl font-bold tracking-tight leading-tight">Pikatan</h1>
+              <p className="text-vault-600 dark:text-vault-400/80 text-[10px] font-medium tracking-widest uppercase">Pengamanan Data Liputan</p>
             </div>
           </div>
 
@@ -1083,7 +1083,7 @@ export default function LoginPage({ onLoginSuccess }) {
         {/* Footer */}
         <div className="mt-4 text-center">
           <p className="text-dark-600 text-[10px]">
-            KryptoInfo v1.0 — Proyek Akhir Kriptografi &middot; UPN &quot;Veteran&quot; Yogyakarta
+            Pikatan v1.0 — Pengamanan Data Liputan &middot; UPN &quot;Veteran&quot; Yogyakarta
           </p>
         </div>
 

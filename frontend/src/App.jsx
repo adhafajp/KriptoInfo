@@ -103,11 +103,11 @@ function App() {
   }
 
   const tabs = [
-    { id: 'message', label: 'Pesan Rahasia', icon: MessageSquareLock, badge: 'AES+Vig' },
-    { id: 'vault', label: 'Vault Storage', icon: Lock, badge: 'ChaCha20' },
+    { id: 'message', label: 'Pesan', icon: MessageSquareLock, badge: 'AES+Vig' },
+    { id: 'vault', label: 'Brankas Dokumen', icon: Lock, badge: 'ChaCha20' },
     { id: 'stego', label: 'Steganografi', icon: Image, badge: 'LSB PNG' },
-    { id: 'blockchain', label: 'Blockchain', icon: Link2, badge: 'SHA-256' },
-    { id: 'audit', label: 'Audit & Forensik', icon: History, badge: 'WORM' },
+    { id: 'blockchain', label: 'Integritas Data', icon: Link2, badge: 'SHA-256' },
+    { id: 'audit', label: 'Log Aktivitas', icon: History, badge: 'Audit' },
   ];
 
   return (
@@ -125,14 +125,14 @@ function App() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-none tracking-tight">
-                  KryptoInfo
+                  Pikatan
                 </h1>
                 <span className="hidden sm:inline-block text-[9px] font-mono px-1.5 py-0.5 rounded bg-vault-500/10 text-vault-600 dark:text-vault-400 border border-vault-500/20">
                   v1.2
                 </span>
               </div>
               <p className="text-[10px] text-vault-600 dark:text-vault-500 font-medium tracking-widest uppercase mt-0.5">
-                Three-Layer Digital Vault
+                Pengamanan Data Liputan
               </p>
             </div>
           </div>
@@ -402,7 +402,7 @@ function App() {
             </span>
           </div>
           <span className="text-slate-500 dark:text-dark-600 text-[10px] font-mono">
-            KryptoInfo — Final Cryptography Project (UPN &quot;Veteran&quot; Yogyakarta)
+            Pikatan — Platform Pengamanan Data Liputan &middot; UPN &quot;Veteran&quot; Yogyakarta
           </span>
         </div>
       </footer>

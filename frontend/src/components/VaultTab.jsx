@@ -234,8 +234,8 @@ export default function VaultTab() {
             <Lock className="w-5 h-5 text-vault-400" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white">Digital Vault</h2>
-            <p className="text-xs text-dark-400">Penyimpanan terenkripsi zero-knowledge</p>
+            <h2 className="text-lg font-bold text-white">Brankas Dokumen</h2>
+            <p className="text-xs text-dark-400">Penyimpanan berkas terenkripsi zero-knowledge</p>
           </div>
         </div>
         <div className="flex items-center gap-2">

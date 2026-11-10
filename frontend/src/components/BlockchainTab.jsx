@@ -233,13 +233,13 @@ export default function BlockchainTab() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-white tracking-tight">Cryptographic Hash Chain</h2>
+              <h2 className="text-xl font-bold text-white tracking-tight">Integritas Data</h2>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-vault-500/15 text-vault-400 border border-vault-500/30 font-semibold uppercase tracking-wider">
                 Proof of Existence
               </span>
             </div>
             <p className="text-xs text-dark-400 mt-0.5">
-              Buku besar anti-manipulasi berbasis tautan rekursif SHA-256 (Merkle-Damgård Construction)
+              Pencatatan dan verifikasi berkas berbasis tautan hash SHA-256
             </p>
           </div>
         </div>

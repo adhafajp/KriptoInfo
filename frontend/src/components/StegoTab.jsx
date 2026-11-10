@@ -48,8 +48,8 @@ export default function StegoTab() {
           <Image className="w-5 h-5 text-vault-400" />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-white">Steganografi Gambar</h2>
-          <p className="text-xs text-dark-400">Sembunyikan pesan dalam gambar PNG dengan LSB + AES-GCM</p>
+          <h2 className="text-lg font-bold text-white">Steganografi</h2>
+          <p className="text-xs text-dark-400">Penyisipan pesan pada citra PNG dengan LSB dan AES-GCM</p>
         </div>
       </div>
 

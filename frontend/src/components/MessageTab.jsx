@@ -74,8 +74,8 @@ export default function MessageTab() {
             <ShieldCheck className="w-5 h-5 text-vault-400" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white">Pesan Rahasia</h2>
-            <p className="text-xs text-dark-400">Enkripsi hybrid: Vigenere + AES-256-GCM</p>
+            <h2 className="text-lg font-bold text-white">Pesan</h2>
+            <p className="text-xs text-dark-400">Enkripsi teks berlapis: Vigenere + AES-256-GCM</p>
           </div>
         </div>
       </div>
