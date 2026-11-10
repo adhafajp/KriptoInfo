@@ -22,6 +22,11 @@ export default function VaultTab() {
   const [decryptKey, setDecryptKey] = useState('');
   const [downloading, setDownloading] = useState(false);
   const [downloadingEnc, setDownloadingEnc] = useState(false);
+  const [showDecryptModal, setShowDecryptModal] = useState(false);
+  const [encFileToDecrypt, setEncFileToDecrypt] = useState(null);
+  const [encJsonText, setEncJsonText] = useState('');
+  const [targetDecryptedName, setTargetDecryptedName] = useState('');
+  const [decryptingFile, setDecryptingFile] = useState(false);
 
   useEffect(() => { loadItems(); }, []);
 
@@ -128,6 +133,64 @@ export default function VaultTab() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  function handleEncFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setEncFileToDecrypt(file);
+    if (file.name.endsWith('.enc')) {
+      setTargetDecryptedName(file.name.replace(/\.enc$/, ''));
+    } else {
+      setTargetDecryptedName('file-terdekripsi');
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setEncJsonText(reader.result);
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleDecryptUploadedFile() {
+    if (!encJsonText.trim()) {
+      setError('File .enc belum dipilih atau kosong');
+      return;
+    }
+    let payload;
+    try {
+      payload = JSON.parse(encJsonText);
+    } catch {
+      setError('Format file .enc tidak valid (harus JSON ChaCha20-Poly1305).');
+      return;
+    }
+
+    setDecryptingFile(true);
+    setError('');
+    const res = await cryptoApi.decryptFile(payload);
+    setDecryptingFile(false);
+
+    if (!res.success) {
+      setError(res.message || 'Gagal mendekripsi file .enc');
+      return;
+    }
+
+    const byteCharacters = atob(res.data.fileBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = targetDecryptedName || 'file-terdekripsi';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    setShowDecryptModal(false);
+    setEncFileToDecrypt(null);
+    setEncJsonText('');
+  }
+
   function formatSize(bytes) {
     if (!bytes) return '0 B';
     const k = 1024;
@@ -175,11 +238,20 @@ export default function VaultTab() {
             <p className="text-xs text-dark-400">Penyimpanan terenkripsi zero-knowledge</p>
           </div>
         </div>
-        <button onClick={() => setShowAdd(!showAdd)}
-          className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all ${showAdd ? 'bg-dark-800 text-dark-400 border border-dark-700' : 'bg-vault-600 hover:bg-vault-500 text-white shadow-lg shadow-vault-600/20'}`}>
-          {showAdd ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showAdd ? 'Batal' : 'Tambah Item'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowDecryptModal(true)}
+            className="px-3.5 py-2 rounded-xl text-sm font-medium flex items-center gap-2 bg-dark-800 hover:bg-dark-700 text-purple-300 border border-purple-500/30 transition-all"
+          >
+            <Unlock className="w-4 h-4" />
+            Dekripsi File .enc
+          </button>
+          <button onClick={() => setShowAdd(!showAdd)}
+            className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all ${showAdd ? 'bg-dark-800 text-dark-400 border border-dark-700' : 'bg-vault-600 hover:bg-vault-500 text-white shadow-lg shadow-vault-600/20'}`}>
+            {showAdd ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {showAdd ? 'Batal' : 'Tambah Item'}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -429,6 +501,80 @@ export default function VaultTab() {
           )}
         </div>
       </div>
+
+      {showDecryptModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-dark-900 border border-dark-700/80 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-dark-800 pb-3">
+              <div className="flex items-center gap-2 text-purple-400">
+                <Unlock className="w-5 h-5" />
+                <h3 className="text-base font-semibold text-white">Dekripsi Berkas .enc</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDecryptModal(false);
+                  setEncFileToDecrypt(null);
+                  setEncJsonText('');
+                }}
+                className="p-1 text-dark-400 hover:text-white rounded-lg hover:bg-dark-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-dark-300">
+              Unggah file berkas <span className="font-mono text-purple-300">.enc</span> (payload JSON ChaCha20-Poly1305) hasil unduhan vault untuk didekripsi kembali menjadi file aslinya.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-dark-400 mb-1.5 font-medium">Pilih File .enc</label>
+                <input
+                  type="file"
+                  accept=".enc,application/json"
+                  onChange={handleEncFileSelect}
+                  className="w-full text-xs text-dark-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-dark-800 file:text-purple-300 hover:file:bg-dark-700 cursor-pointer bg-dark-950 p-2 rounded-xl border border-dark-800"
+                />
+              </div>
+
+              {encFileToDecrypt && (
+                <div>
+                  <label className="block text-xs text-dark-400 mb-1 font-medium">Simpan Sebagai Nama File:</label>
+                  <input
+                    type="text"
+                    value={targetDecryptedName}
+                    onChange={(e) => setTargetDecryptedName(e.target.value)}
+                    placeholder="Contoh: dokumen-asli.pdf"
+                    className="w-full px-3 py-2 bg-dark-950 text-white text-xs rounded-xl border border-dark-800 focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-dark-800">
+              <button
+                type="button"
+                onClick={() => setShowDecryptModal(false)}
+                className="px-4 py-2 bg-dark-800 hover:bg-dark-700 text-dark-300 rounded-xl text-xs font-medium"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDecryptUploadedFile}
+                disabled={!encFileToDecrypt || decryptingFile}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:bg-dark-800 disabled:text-dark-600 text-white rounded-xl text-xs font-medium flex items-center gap-1.5"
+              >
+                {decryptingFile ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" />Mendekripsi...</>
+                ) : (
+                  <><Download className="w-3.5 h-3.5" />Dekripsi & Simpan File</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
