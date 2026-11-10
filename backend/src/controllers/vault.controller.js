@@ -132,6 +132,39 @@ export async function downloadVaultFile(req, res) {
   });
 }
 
+export async function downloadEncryptedVaultFile(req, res) {
+  const item = await prisma.vaultItem.findFirst({
+    where: { id: req.params.id, userId: req.user.id }
+  });
+  if (!item) return res.status(404).json({ success: false, message: 'File vault tidak ditemukan.' });
+  if (!item.fileName) return res.status(400).json({ success: false, message: 'Item ini bukan file.' });
+
+  let storageInfo;
+  try { storageInfo = JSON.parse(item.encryptedData); }
+  catch { return res.status(500).json({ success: false, message: 'Data vault corrupt.' }); }
+
+  const encryptedFilePath = join(VAULT_STORAGE, storageInfo.storagePath);
+  if (!existsSync(encryptedFilePath)) {
+    return res.status(404).json({ success: false, message: 'File terenkripsi tidak ditemukan di storage.' });
+  }
+
+  let rawEncrypted;
+  try {
+    rawEncrypted = readFileSync(encryptedFilePath, 'utf8');
+  } catch {
+    return res.status(500).json({ success: false, message: 'Gagal membaca file terenkripsi.' });
+  }
+
+  return res.json({
+    success: true,
+    data: {
+      fileName: `${item.fileName}.enc`,
+      fileType: 'application/json',
+      content: rawEncrypted
+    }
+  });
+}
+
 export async function listVaultItems(req, res) {
   const items = await prisma.vaultItem.findMany({
     where: { userId: req.user.id },

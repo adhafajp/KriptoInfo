@@ -56,6 +56,7 @@ router.post('/vault/upload', requireAuth, asyncHandler(vault.uploadVaultFile));
 router.get('/vault', requireAuth, asyncHandler(vault.listVaultItems));
 router.get('/vault/:id', requireAuth, asyncHandler(vault.getVaultItem));
 router.get('/vault/:id/download', requireAuth, asyncHandler(vault.downloadVaultFile));
+router.get('/vault/:id/download-encrypted', requireAuth, asyncHandler(vault.downloadEncryptedVaultFile));
 router.delete('/vault/:id', requireAuth, asyncHandler(vault.deleteVaultItem));
 
 // PNG LSB steganography with AES-GCM encrypted payload.

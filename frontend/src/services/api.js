@@ -83,6 +83,7 @@ export const vaultApi = {
     }),
 
   downloadFile: (id) => apiRequest(`/vault/${id}/download`),
+  downloadEncryptedFile: (id) => apiRequest(`/vault/${id}/download-encrypted`),
 
   delete: (id) =>
     apiRequest(`/vault/${id}`, {

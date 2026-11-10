@@ -21,6 +21,7 @@ export default function VaultTab() {
   const [decryptedContent, setDecryptedContent] = useState('');
   const [decryptKey, setDecryptKey] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [downloadingEnc, setDownloadingEnc] = useState(false);
 
   useEffect(() => { loadItems(); }, []);
 
@@ -105,6 +106,24 @@ export default function VaultTab() {
     const a = document.createElement('a');
     a.href = url;
     a.download = res.data.fileName || 'vault-file';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function handleDownloadEncryptedFile(id) {
+    setDownloadingEnc(true);
+    setError('');
+    const res = await vaultApi.downloadEncryptedFile(id);
+    setDownloadingEnc(false);
+    if (!res.success) {
+      setError(res.message || 'Gagal mengunduh file terenkripsi');
+      return;
+    }
+    const blob = new Blob([res.data.content], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = res.data.fileName || 'vault-file.enc';
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
@@ -343,17 +362,30 @@ export default function VaultTab() {
                     <span className="text-xs text-vault-300">Tersimpan terenkripsi dengan ChaCha20-Poly1305</span>
                   </div>
 
-                  <button
-                    onClick={() => handleDownloadFile(selectedItem.id)}
-                    disabled={downloading}
-                    className="w-full py-2.5 bg-vault-600 hover:bg-vault-500 disabled:bg-dark-800 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-vault-600/20"
-                  >
-                    {downloading ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" />Mendekripsi & Mengunduh...</>
-                    ) : (
-                      <><Download className="w-4 h-4" />Dekripsi & Unduh Berkas Asli</>
-                    )}
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                    <button
+                      onClick={() => handleDownloadFile(selectedItem.id)}
+                      disabled={downloading || downloadingEnc}
+                      className="flex-1 py-2.5 bg-vault-600 hover:bg-vault-500 disabled:bg-dark-800 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-vault-600/20"
+                    >
+                      {downloading ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" />Mendekripsi...</>
+                      ) : (
+                        <><Download className="w-4 h-4" />Unduh Asli</>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleDownloadEncryptedFile(selectedItem.id)}
+                      disabled={downloading || downloadingEnc}
+                      className="flex-1 py-2.5 bg-dark-800 hover:bg-dark-700 border border-purple-500/30 text-purple-300 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all"
+                    >
+                      {downloadingEnc ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" />Mengunduh...</>
+                      ) : (
+                        <><Lock className="w-4 h-4" />Unduh .enc</>
+                      )}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <>
