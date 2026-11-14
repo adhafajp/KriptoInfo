@@ -226,108 +226,117 @@ export default function BlockchainTab() {
   return (
     <div className="space-y-6">
       {/* Header & Academic Metatag */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-vault-500/10 border border-vault-500/30 flex items-center justify-center shadow-lg shadow-vault-500/5">
-            <Link2 className="w-6 h-6 text-vault-400" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b-2 border-stone-400/40 gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="rubber-stamp text-[10px] text-red-800 border-red-800 font-bold">
+              LEDGER // 04
+            </span>
+            <span className="text-[11px] font-mono text-stone-700 font-bold uppercase tracking-wider">
+              IMMUTABLE HASH-CHAIN &middot; SHA-256 RECURSIVE
+            </span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-white tracking-tight">Integritas Data</h2>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-vault-500/15 text-vault-400 border border-vault-500/30 font-semibold uppercase tracking-wider">
-                Proof of Existence
-              </span>
-            </div>
-            <p className="text-xs text-dark-400 mt-0.5">
-              Pencatatan dan verifikasi berkas berbasis tautan hash SHA-256
-            </p>
-          </div>
+          <h2 className="text-2xl font-serif font-black tracking-tight text-stone-900 mt-1">
+            Integritas Data & Audit Trail
+          </h2>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={loadBlocks}
             disabled={loading}
-            className="p-2.5 rounded-xl text-dark-400 hover:text-white bg-dark-900/60 hover:bg-dark-800 border border-dark-800 transition-colors"
-            title="Refresh Data"
+            className="p-1.5 rounded bg-stone-300/60 hover:bg-stone-300 text-stone-800 border border-stone-400 transition-colors"
+            title="Refresh Ledger"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={handleVerifyChain}
             disabled={loading}
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all bg-dark-900 hover:bg-dark-800 text-vault-400 border border-vault-500/40 shadow-sm"
+            className="px-3.5 py-1.5 rounded text-xs font-mono font-bold flex items-center gap-1.5 bg-red-800 hover:bg-red-900 text-amber-50 shadow-sm transition-all uppercase tracking-wider"
           >
-            <ShieldCheck className="w-4 h-4 text-vault-400" />
-            Audit Seluruh Rantai
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Audit Rantai SHA-256</span>
           </button>
         </div>
       </div>
 
-      {/* Metric Cards Banner */}
+      {/* Metric Cards Banner - Dossier Evidence Box Grids */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="p-3.5 bg-dark-900/50 border border-dark-800 rounded-xl space-y-1">
-          <div className="flex items-center gap-1.5 text-dark-400 text-xs font-medium">
-            <Layers className="w-3.5 h-3.5 text-vault-400" />
+        <div className="p-3 bg-[#e4dac4] border border-[#baa98f] rounded space-y-1 shadow-sm">
+          <div className="flex items-center gap-1.5 text-stone-700 text-[10px] font-mono uppercase font-bold tracking-wider">
+            <Layers className="w-3.5 h-3.5 text-red-800" />
             <span>Panjang Rantai</span>
           </div>
-          <p className="text-xl font-bold text-white font-mono">{blocks.length} <span className="text-xs text-dark-500 font-sans font-normal">Blok</span></p>
+          <p className="text-lg font-bold text-stone-900 font-mono">{blocks.length} <span className="text-xs text-stone-600 font-normal">Blok</span></p>
         </div>
 
-        <div className="p-3.5 bg-dark-900/50 border border-dark-800 rounded-xl space-y-1">
-          <div className="flex items-center gap-1.5 text-dark-400 text-xs font-medium">
-            <Lock className="w-3.5 h-3.5 text-cyan-400" />
+        <div className="p-3 bg-[#e4dac4] border border-[#baa98f] rounded space-y-1 shadow-sm">
+          <div className="flex items-center gap-1.5 text-stone-700 text-[10px] font-mono uppercase font-bold tracking-wider">
+            <Lock className="w-3.5 h-3.5 text-stone-800" />
             <span>Fungsi Hash</span>
           </div>
-          <p className="text-sm font-bold text-cyan-300 font-mono">SHA-256 (256-bit)</p>
-          <p className="text-[10px] text-dark-500">Collision Resistant</p>
+          <p className="text-xs font-bold text-stone-900 font-mono">SHA-256 (256-bit)</p>
+          <p className="text-[10px] font-mono text-stone-600">Collision Resistant</p>
         </div>
 
-        <div className="p-3.5 bg-dark-900/50 border border-dark-800 rounded-xl space-y-1">
-          <div className="flex items-center gap-1.5 text-dark-400 text-xs font-medium">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+        <div className="p-3 bg-[#e4dac4] border border-[#baa98f] rounded space-y-1 shadow-sm">
+          <div className="flex items-center gap-1.5 text-stone-700 text-[10px] font-mono uppercase font-bold tracking-wider">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-800" />
             <span>Status Integritas</span>
           </div>
-          <p className="text-sm font-bold text-emerald-400">
-            {verification ? (verification.valid ? 'Terverifikasi 100%' : 'Anomali Terdeteksi!') : 'Belum Diaudit'}
+          <p className="text-xs font-bold text-emerald-900 font-mono">
+            {verification ? (verification.valid ? 'VALID 100%' : 'TERPUTUS!') : 'TERVERIFIKASI'}
           </p>
-          <p className="text-[10px] text-dark-500">Zero Bit Drift</p>
+          <p className="text-[10px] font-mono text-stone-600">Zero Bit Drift</p>
         </div>
 
-        <div className="p-3.5 bg-dark-900/50 border border-dark-800 rounded-xl space-y-1">
-          <div className="flex items-center gap-1.5 text-dark-400 text-xs font-medium">
-            <Database className="w-3.5 h-3.5 text-purple-400" />
+        <div className="p-3 bg-[#e4dac4] border border-[#baa98f] rounded space-y-1 shadow-sm">
+          <div className="flex items-center gap-1.5 text-stone-700 text-[10px] font-mono uppercase font-bold tracking-wider">
+            <Database className="w-3.5 h-3.5 text-stone-800" />
             <span>Blok Terbaru</span>
           </div>
-          <p className="text-xs font-mono text-dark-300 truncate" title={latestBlock?.currentHash || 'GENESIS'}>
+          <p className="text-xs font-mono text-stone-900 font-bold truncate" title={latestBlock?.currentHash || 'GENESIS'}>
             {latestBlock ? `#${latestBlock.blockIndex} (${latestBlock.currentHash.slice(0, 10)}...)` : '-'}
           </p>
-          <p className="text-[10px] text-dark-500">Append-Only Ledger</p>
+          <p className="text-[10px] font-mono text-stone-600">Append-Only Ledger</p>
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs */}
-      <div className="flex items-center gap-2 border-b border-dark-800 pb-2">
+      {/* Navigation Sub-Tabs Dossier */}
+      <div className="flex items-center gap-2 border-b-2 border-stone-400/40 pb-2">
         <button
           onClick={() => setActiveView('ledger')}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${activeView === 'ledger' ? 'bg-vault-600/20 text-vault-300 border border-vault-500/40 shadow-sm' : 'text-dark-400 hover:text-white hover:bg-dark-900'}`}
+          className={`px-3 py-1.5 rounded text-xs font-mono font-bold flex items-center gap-1.5 transition-all ${
+            activeView === 'ledger'
+              ? 'bg-stone-900 text-amber-50 shadow-sm'
+              : 'text-stone-700 hover:bg-stone-300/60'
+          }`}
         >
-          <Layers className="w-4 h-4" />
-          Penjelajah Rantai Blok ({blocks.length})
+          <Layers className="w-3.5 h-3.5" />
+          <span>Penjelajah Blok ({blocks.length})</span>
         </button>
         <button
           onClick={() => setActiveView('inspector')}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${activeView === 'inspector' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm' : 'text-dark-400 hover:text-white hover:bg-dark-900'}`}
+          className={`px-3 py-1.5 rounded text-xs font-mono font-bold flex items-center gap-1.5 transition-all ${
+            activeView === 'inspector'
+              ? 'bg-stone-900 text-amber-50 shadow-sm'
+              : 'text-stone-700 hover:bg-stone-300/60'
+          }`}
         >
-          <Search className="w-4 h-4 text-cyan-400" />
-          Verifikator Keaslian Berkas
+          <Search className="w-3.5 h-3.5" />
+          <span>Verifikator Berkas</span>
         </button>
         <button
           onClick={() => setActiveView('add')}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${activeView === 'add' ? 'bg-vault-600/20 text-vault-300 border border-vault-500/40 shadow-sm' : 'text-dark-400 hover:text-white hover:bg-dark-900'}`}
+          className={`px-3 py-1.5 rounded text-xs font-mono font-bold flex items-center gap-1.5 transition-all ${
+            activeView === 'add'
+              ? 'bg-stone-900 text-amber-50 shadow-sm'
+              : 'text-stone-700 hover:bg-stone-300/60'
+          }`}
         >
-          <Plus className="w-4 h-4" />
-          Tambah Blok Baru
+          <Plus className="w-3.5 h-3.5" />
+          <span>Tambah Blok</span>
         </button>
       </div>
 
@@ -428,113 +437,110 @@ export default function BlockchainTab() {
                 )}
 
                 {/* Block Card */}
-                <div className="bg-dark-900/60 border border-dark-700/60 rounded-2xl overflow-hidden shadow-lg transition-all hover:border-dark-600">
+                <div className="dossier-box rounded-lg overflow-hidden border-2 border-stone-400 shadow-sm transition-all">
                   {/* Top Bar: Block index, type, and timestamp */}
-                  <div className="p-4 bg-dark-950/40 border-b border-dark-800/60 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 ${isGenesis ? 'bg-vault-500/20 text-vault-300 border border-vault-500/30' : 'bg-dark-800 text-dark-200 border border-dark-700'}`}>
-                        <Hash className="w-3.5 h-3.5 text-vault-400" />
-                        <span>{isGenesis ? 'GENESIS BLOCK #0' : `BLOCK #${b.blockIndex}`}</span>
-                      </div>
+                  <div className="p-3 bg-stone-300/40 dark:bg-stone-800/40 border-b border-stone-400 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="rubber-stamp text-[10px] text-red-800 dark:text-red-400 border-red-800 font-bold">
+                        {isGenesis ? 'GENESIS #0' : `BLOCK #${b.blockIndex}`}
+                      </span>
 
                       {parsed.isFile ? (
-                        <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20 flex items-center gap-1">
-                          <File className="w-3 h-3 text-purple-400" /> Berkas Dokumen
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-400">
+                          Berkas Dokumen
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20 flex items-center gap-1">
-                          <FileText className="w-3 h-3 text-blue-400" /> Catatan Teks
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 border border-stone-400">
+                          Catatan Teks
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1.5 text-dark-400 text-xs">
-                      <Clock className="w-3.5 h-3.5 text-dark-500" />
-                      <span className="font-mono text-[11px]">{new Date(b.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'medium' })}</span>
+                    <div className="flex items-center gap-1.5 text-stone-700 dark:text-stone-400 text-xs font-mono font-medium">
+                      <Clock className="w-3.5 h-3.5 text-stone-600" />
+                      <span>{new Date(b.createdAt).toLocaleString('id-ID')}</span>
                     </div>
                   </div>
 
                   {/* Block Content / Asset Payload */}
-                  <div className="p-4 space-y-3">
+                  <div className="p-3.5 space-y-3">
                     {parsed.isFile ? (
-                      <div className="p-3.5 rounded-xl bg-dark-950/60 border border-purple-500/20 flex items-center justify-between gap-3">
+                      <div className="p-3 rounded dossier-box border border-stone-400 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
-                            <File className="w-5 h-5 text-purple-300" />
+                          <div className="w-8 h-8 rounded bg-stone-300/60 dark:bg-stone-800 flex items-center justify-center flex-shrink-0">
+                            <File className="w-4 h-4 text-stone-800 dark:text-stone-200" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-bold text-white truncate">{parsed.fileName}</p>
-                            <p className="text-xs text-dark-400">
-                              {formatBytes(parsed.fileSize)} • <span className="font-mono">{parsed.fileType || 'binary/stream'}</span>
+                            <p className="text-xs font-mono font-bold truncate">{parsed.fileName}</p>
+                            <p className="text-[10px] font-mono opacity-80">
+                              {formatBytes(parsed.fileSize)} &middot; {parsed.fileType || 'binary/stream'}
                             </p>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-dark-500 uppercase tracking-wider font-mono hidden sm:inline">
-                            Tercatat: {parsed.recordedAt ? new Date(parsed.recordedAt).toLocaleTimeString('id-ID') : '-'}
-                          </span>
-                        </div>
+                        <span className="text-[10px] font-mono opacity-70 uppercase tracking-wider hidden sm:inline">
+                          Waktu: {parsed.recordedAt ? new Date(parsed.recordedAt).toLocaleTimeString('id-ID') : '-'}
+                        </span>
                       </div>
                     ) : (
-                      <div className="p-3.5 rounded-xl bg-dark-950/60 border border-dark-800 space-y-1">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-dark-500">Konten Transaksi / Catatan:</span>
-                        <p className="text-sm text-dark-200 font-mono whitespace-pre-wrap">{parsed.rawText}</p>
+                      <div className="p-3 rounded dossier-box border border-stone-400 space-y-1">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-800 dark:text-red-400">Konten Transaksi / Catatan:</span>
+                        <p className="text-xs font-mono font-bold whitespace-pre-wrap">{parsed.rawText}</p>
                       </div>
                     )}
 
                     {/* Hash Breakdown Table */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono">
                       {/* Asset Fingerprint */}
-                      <div className="p-2.5 rounded-xl bg-dark-950/40 border border-dark-800 space-y-1">
+                      <div className="p-2.5 rounded dossier-box space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-dark-500 uppercase tracking-wider">Asset Hash (Sidik Jari Data):</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Asset Hash (Sidik Jari Data):</span>
                           <button
                             onClick={() => copyToClipboard(b.assetHash, `asset-${b.blockIndex}`)}
-                            className="text-dark-400 hover:text-white transition-colors"
+                            className="opacity-70 hover:opacity-100 transition-opacity"
                             title="Salin Hash"
                           >
-                            {copiedId === `asset-${b.blockIndex}` ? <Check className="w-3 h-3 text-vault-400" /> : <Copy className="w-3 h-3" />}
+                            {copiedId === `asset-${b.blockIndex}` ? <Check className="w-3 h-3 text-red-600 dark:text-red-400" /> : <Copy className="w-3 h-3" />}
                           </button>
                         </div>
-                        <p className="text-vault-300 text-[11px] truncate" title={b.assetHash}>{b.assetHash}</p>
+                        <p className="text-[11px] font-bold truncate select-all" title={b.assetHash}>{b.assetHash}</p>
                       </div>
 
                       {/* Previous Block Hash */}
-                      <div className="p-2.5 rounded-xl bg-dark-950/40 border border-dark-800 space-y-1">
+                      <div className="p-2.5 rounded dossier-box space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-dark-500 uppercase tracking-wider">Previous Hash H(prev):</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">Previous Hash H(prev):</span>
                           <button
                             onClick={() => copyToClipboard(b.previousHash, `prev-${b.blockIndex}`)}
-                            className="text-dark-400 hover:text-white transition-colors"
+                            className="opacity-70 hover:opacity-100 transition-opacity"
                             title="Salin Hash"
                           >
-                            {copiedId === `prev-${b.blockIndex}` ? <Check className="w-3 h-3 text-vault-400" /> : <Copy className="w-3 h-3" />}
+                            {copiedId === `prev-${b.blockIndex}` ? <Check className="w-3 h-3 text-red-600 dark:text-red-400" /> : <Copy className="w-3 h-3" />}
                           </button>
                         </div>
-                        <p className={`text-[11px] truncate ${isGenesis ? 'text-amber-400 font-bold' : 'text-dark-400'}`} title={b.previousHash}>
+                        <p className={`text-[11px] font-bold truncate select-all ${isGenesis ? 'text-red-700 dark:text-red-400 font-black' : ''}`} title={b.previousHash}>
                           {b.previousHash}
                         </p>
                       </div>
 
                       {/* Current Block Hash */}
-                      <div className="md:col-span-2 p-2.5 rounded-xl bg-dark-950/80 border border-vault-500/30 space-y-1">
+                      <div className="md:col-span-2 p-2.5 rounded dossier-box border-2 border-red-800/40 space-y-1">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-vault-400" />
-                            <span className="text-[10px] text-vault-400 uppercase tracking-wider font-bold">
+                            <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
+                            <span className="text-[10px] font-black uppercase tracking-wider text-red-800 dark:text-red-400">
                               Current Block Hash H(curr) = SHA256(Block Payload):
                             </span>
                           </div>
                           <button
                             onClick={() => copyToClipboard(b.currentHash, `curr-${b.blockIndex}`)}
-                            className="text-vault-400 hover:text-white transition-colors"
+                            className="opacity-70 hover:opacity-100 transition-opacity"
                             title="Salin Hash"
                           >
-                            {copiedId === `curr-${b.blockIndex}` ? <Check className="w-3.5 h-3.5 text-vault-300" /> : <Copy className="w-3.5 h-3.5" />}
+                            {copiedId === `curr-${b.blockIndex}` ? <Check className="w-3.5 h-3.5 text-red-600" /> : <Copy className="w-3.5 h-3.5" />}
                           </button>
                         </div>
-                        <p className="text-white font-bold text-[11px] break-all select-all">{b.currentHash}</p>
+                        <p className="font-mono font-bold text-[11px] break-all select-all tracking-wide">{b.currentHash}</p>
                       </div>
                     </div>
 
