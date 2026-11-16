@@ -1,9 +1,9 @@
-# KryptoInfo
-### Three-Layer Secure Digital Vault
+# KryptoInfo (PIKATAN // Brankas Investigasi)
+### Three-Layer Secure Digital Vault & Multi-Layer Cryptography Suite
 
-**KryptoInfo** adalah aplikasi web berbasis keamanan informasi yang dirancang untuk melindungi aset dan informasi digital menggunakan kombinasi autentikasi berlapis dan algoritma kriptografi.
+**KryptoInfo** adalah aplikasi web keamanan informasi bertema *Detective Dossier* (**PIKATAN // Brankas Investigasi**) yang dirancang untuk melindungi aset, pesan, gambar, dan log bukti digital menggunakan kombinasi autentikasi tiga lapis (3FA) dan rangkaian algoritma kriptografi berlapis (*defense-in-depth*).
 
-Proyek ini dikembangkan sebagai tugas akhir mata kuliah **Kriptografi**.
+Proyek ini dikembangkan sebagai proyek akhir mata kuliah **Kriptografi**.
 
 ---
 
@@ -11,317 +11,285 @@ Proyek ini dikembangkan sebagai tugas akhir mata kuliah **Kriptografi**.
 
 | Informasi | Keterangan |
 |---|---|
-| Nama Proyek | KryptoInfo |
-| Jenis Aplikasi | Web-Based Digital Vault |
+| Nama Proyek | KryptoInfo (`PIKATAN // BRANKAS INVESTIGASI`) |
+| Jenis Aplikasi | Web-Based Secure Digital Vault |
 | Mata Kuliah | Kriptografi |
-| Anggota 1 | Adhafa Joan Putranto |
-| NIM Anggota 1 | 123240069 |
-| Anggota 2 | Mirwan Qolyubi |
-| NIM Anggota 2 | 123240116 |
-| Status | Dalam Pengembangan |
+| Anggota 1 | Adhafa Joan Putranto (`123240069`) |
+| Anggota 2 | Mirwan Qolyubi (`123240116`) |
+| Status | Selesai / Siap Demo (v2.0) |
 
 ## 2. Tujuan Proyek
 
-KryptoInfo bertujuan membangun aplikasi penyimpanan informasi digital yang menggabungkan autentikasi berlapis, perlindungan data, dan verifikasi integritas aset.
+KryptoInfo bertujuan menyediakan brankas digital yang menggabungkan autentikasi biometrik + perangkat keras USB + kata sandi dengan pipeline enkripsi berlapis agar:
+- Akses ke dalam sistem terlindungi oleh **tiga faktor autentikasi** (`Master Password` + `USB Dongle Ed25519` + `Pengenalan Wajah`).
+- Pesan teks, catatan brankas, dan berkas biner diamankan menggunakan enkripsi berlapis modern (**Vigenère + SHAKE-256 + HKDF-SHA512 + AES-256-GCM + ChaCha20-Poly1305 + HMAC-SHA512**).
+- Pesan rahasia dapat disisipkan secara terenkripsi ke dalam citra PNG menggunakan **steganografi LSB 4 lapis**.
+- Integritas dokumen dan log catatan dilindungi oleh **rantai blok (hash-chain)** bersegel **SHA-256 + SHA3-256 + HMAC-SHA512**.
+- Seluruh aktivitas keamanan tercatat rapi dalam **Log Aktivitas Audit**.
 
-Aplikasi ini dirancang agar pengguna dapat:
-- Melindungi akses menggunakan tiga lapisan autentikasi.
-- Mengenkripsi pesan dan dokumen.
-- Menyembunyikan pesan rahasia dalam gambar.
-- Melindungi integritas aset menggunakan hash-chain.
-- Memantau aktivitas keamanan aplikasi.
+---
 
 ## 3. Fitur Utama
 
-Fitur KryptoInfo dibagi menjadi dua tahapan operasional: **Fitur Sebelum Masuk (Pre-Authentication & Enrollment)** dan **Fitur Setelah Masuk (Dashboard Digital Vault)**.
+Fitur KryptoInfo terbagi menjadi dua tahap utama: **Pre-Authentication & Enrollment (`LoginPage`)** dan **Dashboard Brankas Investigasi (`App`)** yang mendukung **Light Mode** maupun **Dark Mode** dengan kontras tinggi.
+
+### A. Fitur Sebelum Masuk (Autentikasi 3FA & Pendaftaran)
+
+#### 1. USB Companion Agent (`http://127.0.0.1:8787`)
+- **Deteksi Drive Otomatis & Cache Cepat:** Memindai drive *removable* (USB flash drive) di Windows melalui `.NET DriveInfo` dengan cache cepat sehingga pembacaan status berjalan responsif.
+- **Pencarian Folder Multi-Lokasi:** Mencari berkas dongle JSON di direktori *root* flashdisk maupun subfolder `KriptoInfoDongle/`, `KryptoInfoDongle/`, `kriptoinfodongle/`, `kryptoinfodongle/`, `.kryptoinfo/dongles/`, `KriptoInfo/dongles/`, `KryptoInfo/dongles/`, dan `.kryptoinfo/`.
+- **Simpan Otomatis Saat Enrollment (`POST /api/save-dongle`):** Saat pendaftaran agen baru berhasil membuat keypair **Ed25519**, frontend otomatis meminta USB Agent menyimpan file dongle (`kryptoinfo-dongle-<username>.json`) langsung ke folder `KriptoInfoDongle/` di flashdisk yang terdeteksi (dengan fallback unduhan browser jika flashdisk belum siap).
+- **Status Visual Real-time:** Menampilkan kartu status dengan outline hijau terang **`DRIVE USB TERDETEKSI`** beserta identitas file dan drive begitu dongle terdeteksi.
+- **Keamanan Kunci Privat:** Penandatanganan *challenge* dilakukan secara lokal oleh USB Agent; *private key* PKCS#8 Ed25519 **tidak pernah dikirim ke browser atau server**.
+
+#### 2. Biometrik Wajah Real-time (`faceHelper.js` + `@vladmandic/face-api`)
+- **Kamera Mirror (`scale-x-[-1]`):** Pratinjau webcam dicerminkan agar natural saat pengguna menyesuaikan posisi wajah.
+- **Unified Single-Loop & Kotak Deteksi Wajah:**
+  - `TinyFaceDetector` digunakan pada loop pratinjau agar FPS tetap ringan dan mulus, menggambar kotak deteksi wajah secara real-time (`computeDisplayBox`).
+  - `ssdMobilenetv1`, `faceLandmark68Net`, dan `faceRecognitionNet` (ResNet-34 128-D L2-normalized descriptor) digunakan untuk ekstraksi fitur akurat saat verifikasi/pendaftaran.
+- **Indikator Angka Kedekatan Wajah (`evaluateFaceProximity`):** Menampilkan persentase kedekatan dan estimasi jarak (`cm`) secara real-time, membedakan kondisi *terlalu jauh*, *optimal*, dan *terlalu dekat*, serta mengubah warna status sensor mengikuti tema aktif ketika wajah terdeteksi optimal.
+- **Validasi Wajah Tunggal & Ambang Batas Kalibrasi:** Menolak frame tanpa wajah atau berisi lebih dari satu wajah; pencocokan L2-normalized Euclidean distance backend dikalibrasi pada threshold `0.42`.
+
+#### 3. Autentikasi Tiga Lapis (`AKSES BRANKAS`) & Pendaftaran (`PENDAFTARAN AGEN`)
+1. **Knowledge Factor — Master Password:** Diverifikasi dengan **Argon2id**.
+2. **Possession Factor — USB Dongle Ed25519:** Mekanisme *challenge-response* acak berbatas waktu yang diverifikasi server menggunakan *public key* terdaftar.
+3. **Inherence Factor — Biometrik Wajah:** Pencocokan vektor 128 dimensi di backend.
+- **Pendaftaran Baru (`PENDAFTARAN AGEN`):** Memerlukan `ENROLLMENT_CODE`, membangkitkan pasangan kunci Ed25519 di klien, mengambil biometrik wajah langsung dari kamera, dan menyimpan berkas dongle ke folder `KriptoInfoDongle` di USB drive.
 
 ---
 
-### A. Fitur Sebelum Masuk (Autentikasi & Pendaftaran)
+### B. Fitur Setelah Masuk (`PIKATAN // BRANKAS INVESTIGASI`)
 
-Sebelum masuk ke dalam dashboard, sistem menyediakan antarmuka autentikasi tiga lapis dan modul pendaftaran pengguna baru:
+Navigasi utama dashboard terdiri atas 5 tab modular plus modal utilitas di header:
 
-#### 1. Pemindaian & Deteksi USB Otomatis (USB Companion Agent)
-- **Deteksi Drive Removable Windows:** USB Agent secara otomatis memindai drive bertipe *Removable* (flashdisk) yang tercolok ke sistem operasi menggunakan utilitas PowerShell `.NET DriveInfo`.
-- **Pemindaian Lokasi Dongle:** Agen mencari file kunci dongle berformat JSON pada:
-  - Direktori *root* flashdisk.
-  - Subfolder: `KryptoInfoDongle/`, `.kryptoinfo/dongles/`, dan `KryptoInfo/dongles/`.
-- **Validasi Integritas Kunci:** Memastikan file dongle berukuran wajar (≤ 64 KB), berupa JSON valid, menyimpan private key bertipe PKCS#8 DER Base64, dan berjenis algoritma **Ed25519**.
-- **Indikator Real-time di UI:** Frontend secara otomatis melakukan *polling* setiap 2,5 detik ke USB Agent (`http://127.0.0.1:8787/api/status`). Kartu status menampilkan indikator hijau bila dongle valid terdeteksi lengkap beserta nama file dan drive-nya, atau kuning bila belum dicolokkan.
+#### 1. Pesan (`MessageTab` — 5-Layer Hybrid Cipher)
+Mengamankan pesan teks sensitif dengan alur kriptografi 5 lapis berurutan:
+1. **Lapis 1:** `Vigenère Polyalphabetic` — substitusi berbasis kata kunci pengguna.
+2. **Lapis 2:** `SHAKE-256 Keystream Whitening` — stream whitening acak berbasis salt.
+3. **Lapis 3:** `HKDF-SHA512 Key Derivation` — menurunkan sub-kunci terisolasi dengan mengikat *Master Key* server dan kata kunci pengguna.
+4. **Lapis 4:** `ChaCha20-Poly1305 AEAD` — enkripsi autentikasi bagian dalam.
+5. **Lapis 5:** `AES-256-GCM + HMAC-SHA512` — enkripsi autentikasi luar (*Encrypt-then-MAC*) disertai Multi-Digest (`SHA-256` & `SHA3-256`).
+- Menghasilkan token Base64 ringkas ber-magic header `KI5L` sekaligus payload JSON, dan mendukung dekripsi token Base64, payload JSON v2, maupun format kompatibilitas mundur v1.
 
-#### 2. Pemindaian & Verifikasi Wajah (Face Recognition via Webcam)
-- **Akses Kamera Lokal:** Membuka webcam laptop/komputer pengguna dengan resolusi ideal 720p 30fps.
-- **Model Biometrik Deep Learning:** Memuat tiga neural network via `@vladmandic/face-api`:
-  - `ssdMobilenetv1` (pendeteksi bounding box wajah dengan akurasi tinggi).
-  - `faceLandmark68Net` (pemetaan 68 titik landmark fitur wajah).
-  - `faceRecognitionNet` (ekstraksi representasi fitur ke dalam vektor numerik 128 dimensi).
-- **Validasi Wajah Tunggal:** Sistem menolak proses jika wajah tidak terdeteksi atau jika ada lebih dari satu orang di depan kamera.
-- **Verifikasi Biometrik:** Pada saat login, vektor 128 angka dari webcam dicocokkan dengan *template* wajah saat enrollment menggunakan perhitungan *Euclidean distance*. Toleransi ambang batas (threshold) diatur ketat (default ≤ 0.60).
+#### 2. Brankas Dokumen (`VaultTab` — 5-Layer Cascade Cipher)
+Menyimpan catatan rahasia (`NOTE`, `CREDENTIAL`, `DOCUMENT`) dan berkas biner terenkripsi (`.enc`) dengan **Zero Plaintext Storage** di MariaDB:
+- Mengamankan teks dan berkas menggunakan pipeline **5-Layer Cascade (`chachaEncrypt` / `chachaDecrypt`)**:
+  1. `HKDF-SHA512` (isolasi 4 sub-kunci independen dari *Master Key* + salt 16-byte).
+  2. `SHAKE-256` (*stream whitening*).
+  3. Inner `AES-256-GCM` AEAD.
+  4. Outer `ChaCha20-Poly1305` AEAD.
+  5. `HMAC-SHA512` *Encrypt-then-MAC* + segel integritas `SHA-256` & `SHA3-256`.
+- Mendukung pencarian item, inspeksi metadata lapisan & digest, serta modal khusus dekripsi dan unduh berkas `.enc`.
 
-#### 3. Autentikasi Tiga Lapis (Three-Layer Authentication)
-Untuk mendapatkan akses login, seluruh faktor berikut wajib lolos verifikasi:
-1. **Faktor 1 (Knowledge): Master Password**
-   - Password diverifikasi menggunakan algoritma **Argon2id** pada backend.
-2. **Faktor 2 (Possession): USB Dongle Kriptografis (Ed25519 Challenge-Response)**
-   - Backend menerbitkan *cryptographic nonce/challenge* acak yang memiliki batas waktu kedaluwarsa.
-   - Frontend meminta USB Agent lokal menandatangani *challenge* menggunakan *private key* di flashdisk.
-   - Private key **tidak pernah dikirim ke browser atau jaringan**. Backend memverifikasi tanda tangan digital menggunakan *public key* yang tersimpan di database.
-3. **Faktor 3 (Inherence): Biometrik Wajah**
-   - Vektor deskriptor wajah dikirim dan dicocokkan dengan data biometrik terdaftar di server.
+#### 3. Steganografi (`StegoTab` — 4-Layer Encrypted PNG LSB)
+Menyembunyikan pesan rahasia ke dalam bit paling tidak signifikan (*Least Significant Bit*) kanal warna gambar PNG menggunakan 4 lapis proteksi:
+1. `Vigenère Master Substitution` (seed deterministik berbasis SHA-256 *Master Key*).
+2. `HKDF-SHA512 Key Derivation`.
+3. `SHAKE-256 Stream Whitening`.
+4. `AES-256-GCM AEAD + PNG LSB` embedding/extraction.
+- Dilengkapi pratinjau gambar langsung, indikator kapasitas maksimum bit/karakter LSB pada citra PNG yang diunggah, dan isolasi error saat mengekstrak gambar kosong tanpa payload stego.
 
-#### 4. Pendaftaran Pengguna Baru (Enrollment)
-- Memerlukan **Enrollment Code** rahasia yang dikonfigurasi pada server untuk mencegah pendaftaran liar.
-- Mengambil deskriptor wajah asli via webcam secara langsung.
-- Menghasilkan pasangan kunci **Ed25519** baru langsung di peramban pengguna. Public key didaftarkan ke server, sedangkan private key otomatis diunduh sebagai file dongle (`kryptoinfo-dongle-<username>.json`) untuk disimpan ke dalam flashdisk.
+#### 4. Integritas Data (`BlockchainTab` — Multi-Seal Hash-Chain)
+Buku besar *immutable hash-chain* per pengguna dengan segel kriptografi ganda:
+- Setiap blok menyimpan `blockIndex`, `assetId`, `assetHash` (SHA-256 64-hex), `previousHash`, `currentHash`, `timestamp`, serta segel verifikasi **`SHA3-256`** dan **`HMAC-SHA512`** (`hmacSeal`).
+- Menyediakan inspektor *preimage*, verifikasi kecocokan dokumen via *Proof-of-Existence*, serta **Verifikasi Rantai Penuh** dari blok *genesis* hingga blok terbaru.
+
+#### 5. Log Aktivitas (`AuditTab`) & Modal Utilitas
+- **Log Aktivitas (`AuditTab`):** Menampilkan ringkasan metrik keamanan, filter pencarian dan status, serta 50 catatan aktivitas terbaru (login, enkripsi/dekripsi, steganografi, operasi vault, hingga pencatatan blok) tanpa pernah mencatat kredensial atau plaintext rahasia.
+- **Alat Kriptografi (`CryptoToolModal`):** Utilitas perhitungan multi-hash & konversi teks (`SHA-256`, `SHA3-256`, Base64, Hex) langsung dari header.
+- **Status Keamanan (`SecurityHealthModal`):** Diagnostik kesiapan layanan backend, database, USB Agent, dan postur autentikasi 3 lapis.
 
 ---
-
-### B. Fitur Setelah Masuk (Dashboard Digital Vault)
-
-Setelah ketiga faktor autentikasi berhasil diverifikasi, pengguna masuk ke dashboard dengan navigasi empat modul utama:
-
-#### 1. Pesan Rahasia (Message Tab)
-- **Enkripsi Berlapis (Hybrid):** Menggabungkan kriptografi klasik dan modern:
-  - **Lapisan 1 (Klasik): Vigenere Cipher** — melakukan substitusi polyalphabetic berdasarkan kata kunci yang dimasukkan pengguna.
-  - **Lapisan 2 (Modern): AES-256-GCM** — mengenkripsi hasil substitusi menggunakan AES mode Galois/Counter dengan random IV 12-byte dan authenticated tag 16-byte untuk menjamin kerahasiaan sekaligus integritas data.
-- **Dekripsi Pesan:** Mengonversi payload JSON terenkripsi kembali ke plaintext asli setelah memverifikasi authentication tag dan membalik substitusi Vigenere.
-- **Uji Integritas Otomatis:** Jika payload JSON dimanipulasi sekecil apa pun, dekripsi AES-GCM akan menolaknya.
-
-#### 2. Brankas Digital (Vault Storage Tab)
-- **Penyimpanan Terpusat & Terenkripsi:** Menyimpan catatan penting, kredensial login/akun, atau dokumen ringkas ke dalam database MariaDB.
-- **Zero Plaintext Storage:** Data dienkripsi secara lokal sebelum dikirim ke database. Kolom database `encryptedData` hanya menyimpan struktur ciphertext aman.
-- **Kategori Item:** Pengguna dapat mengelompokkan item ke dalam kategori `NOTE`, `CREDENTIAL`, atau `DOCUMENT`.
-- **Manajemen Brankas Lengkap:**
-  - Menambah item baru dengan enkripsi Vigenere + AES-256-GCM.
-  - Menampilkan daftar seluruh item milik pengguna yang sedang login.
-  - Membaca ciphertext dan mendekripsi konten asli sesuai kebutuhan dengan memasukkan kunci Vigenere yang cocok.
-  - Menghapus item brankas secara aman.
-
-#### 3. Steganografi Gambar (Stego Tab)
-- **Teknik Least Significant Bit (LSB):** Menyisipkan bit pesan rahasia ke dalam bit paling tidak signifikan dari channel warna gambar PNG.
-- **Penyisipan Terenkripsi:** Pesan terlebih dahulu dienkripsi menggunakan AES-256-GCM sebelum disematkan ke dalam piksel gambar, sehingga pihak yang berhasil mengekstrak bit tetap tidak dapat membaca isi pesan tanpa kunci.
-- **Fitur Embed:** Unggah gambar PNG asli, ketik pesan rahasia, dan unduh file PNG hasil steganografi (`stego-output.png`). Tampilan visual gambar tampak identik dengan gambar asli.
-- **Fitur Extract:** Unggah gambar PNG stego untuk mengekstrak pesan tersembunyi secara otomatis dan menampilkannya pada layar.
-
-#### 4. Blockchain & Verifikasi Integritas Aset (Blockchain Tab)
-- **Educational Immutable Hash-Chain:** Mengimplementasikan rantai blok terdesain khusus yang terikat ke setiap akun pengguna.
-- **Hashing SHA-256:** Setiap blok menyimpan:
-  - Indeks blok (`blockIndex`).
-  - Metadata atau identifier aset (`assetId` / `metadata`).
-  - Hash konten aset (`assetHash`).
-  - Hash blok sebelumnya (`previousHash`).
-  - Hash blok saat ini (`currentHash` = SHA-256 dari seluruh komponen blok).
-  - Stempel waktu (`timestamp`).
-- **Pencatatan Blok Baru:** Pengguna dapat memasukkan data atau log transaksi untuk dicatat secara permanen ke dalam rantai.
-- **Verifikasi Integritas Rantai (One-Click Chain Verification):** Menelusuri seluruh rantai dari blok pertama (genesis) hingga blok terkini, menghitung ulang nilai hash secara berantai, dan mendeteksi apakah data pada suatu blok pernah dirusak atau diubah.
-
-#### 5. Fitur Pendukung di Backend
-- **Enkripsi File (ChaCha20-Poly1305):** Endpoint API backend `/api/crypto/file/encrypt` dan `/api/crypto/file/decrypt` untuk pengamanan file biner bervolume tinggi menggunakan cipher stream berkecepatan tinggi dengan autentikasi Poly1305.
-- **Audit Aktivitas Keamanan (System Audit Log):** Endpoint `/api/audit` mencatat riwayat aktivitas autentikasi, enkripsi/dekripsi, serta manipulasi blok tanpa pernah mencatat kredensial, kunci privat, atau plaintext sensitif.
 
 ## 4. Teknologi yang Digunakan
 
 | Bagian | Teknologi |
 |---|---|
-| Frontend | React 18.3.1 |
-| Build Tool | Vite |
-| Routing | React Router |
-| Styling | Tailwind CSS / solusi styling yang sesuai |
-| Icons | Lucide React |
-| Backend | Node.js dan Express.js |
-| ORM | Prisma ORM |
-| Database | MariaDB (XAMPP) |
-| Password Hashing | Argon2id |
-| Public-Key Cryptography | Ed25519 |
-| Text Encryption | Vigenere dan AES-256-GCM |
-| File Encryption | ChaCha20-Poly1305 |
-| Image Steganography | PNG LSB |
-| Integrity Verification | SHA-256 |
+| Frontend | React 18.3.1, Vite, Tailwind CSS (`darkMode: 'class'`), Lucide React |
+| Pengenalan Wajah | `@vladmandic/face-api` (`TinyFaceDetector`, `ssdMobilenetv1`, `faceLandmark68Net`, `faceRecognitionNet`) |
+| Backend | Node.js (>= 20.19.0, ESM) & Express.js |
+| Database & ORM | MariaDB (XAMPP) & Prisma ORM |
+| Password & Key Derivation | Argon2id, HKDF-SHA512, SHAKE-256 |
+| Public-Key Cryptography | Ed25519 (PKCS#8 DER, Challenge-Response) |
+| Enkripsi Simetris & Hybrid | Vigenère Cipher, AES-256-GCM, ChaCha20-Poly1305 |
+| Integritas & MAC | SHA-256, SHA3-256, HMAC-SHA512 |
+| Image Steganography | PNG LSB + `pngjs` + AES-256-GCM |
+| USB Agent | Standalone Node HTTP Server (port `8787`), PowerShell `.NET DriveInfo` |
 
-## 5. Arsitektur Aplikasi
+---
 
-KryptoInfo menggunakan arsitektur modular yang terdiri dari:
-
-- **Frontend:** Menyediakan antarmuka pengguna dan interaksi aplikasi.
-- **Backend:** Menangani autentikasi, operasi kriptografi, validasi, dan API.
-- **Database:** Menyimpan akun, metadata, ciphertext, dan catatan aktivitas.
-- **USB Companion Agent:** Mendeteksi USB dan melakukan penandatanganan challenge menggunakan private key.
-
-## 6. Struktur Folder
+## 5. Struktur Folder
 
 ```text
-ProyekKriptoWithFrontend/
-├── backend/                  # REST API Express & Prisma ORM (Port 3001)
+ProyekAkhirMain/
+├── backend/                      # REST API Express & Prisma ORM (Port 3001)
 │   ├── prisma/
-│   │   ├── migrations/       # Riwayat migrasi database SQL
-│   │   └── schema.prisma     # Skema model MariaDB
+│   │   ├── migrations/           # Riwayat migrasi schema database
+│   │   └── schema.prisma         # Skema model MariaDB
 │   ├── src/
-│   │   ├── config/           # Koneksi database MariaDB & Prisma
-│   │   ├── controllers/      # Controller auth, crypto, vault, stego, blockchain
-│   │   ├── crypto/           # Implementasi AES, ChaCha20, Vigenere, SHA-256
-│   │   ├── middleware/       # Autentikasi sesi & error handler
-│   │   ├── routes/           # Routing API Express (/api/*)
-│   │   ├── app.js            # Konfigurasi aplikasi Express
-│   │   └── server.js         # Entry point server backend
-│   ├── tests/                # Pengujian otomatis (node:test)
-│   ├── tools/                # Utilitas CLI dongle
-│   ├── .env.example          # Contoh variabel lingkungan backend
-│   └── package.json
-├── frontend/                 # Aplikasi antarmuka React 18 + Vite (Port 5173/5174)
-│   ├── public/
-│   │   └── models/           # Bobot neural network face-api
-│   ├── src/
-│   │   ├── components/       # LoginPage, MessageTab, VaultTab, StegoTab, BlockchainTab
-│   │   ├── services/         # Klien HTTP Axios / API connector
-│   │   ├── utils/            # Helper face-api (kamera) dan crypto (Ed25519)
-│   │   ├── App.jsx           # Root layout dan routing tab
-│   │   └── main.jsx          # Entry point Vite React
-│   ├── .eslintrc.cjs
-│   ├── vite.config.js
-│   └── package.json
-├── usb-agent/                # Daemon lokal pemindaian USB & signing (Port 8787)
-│   ├── src/
-│   │   ├── discovery.js      # Deteksi drive removable & folder USB
-│   │   ├── dongle.js         # Pembacaan PKCS#8 & signing Ed25519
-│   │   └── server.js         # HTTP server lokal USB Agent
-│   ├── test/                 # Pengujian unit discovery & signing
+│   │   ├── config/db.js          # Koneksi Prisma + MariaDB
+│   │   ├── controllers/          # auth, blockchain, crypto, stego, vault
+│   │   ├── crypto/crypto.js      # Primitif Vigenère, HKDF, SHAKE-256, AES-GCM, ChaCha20, HMAC, SHA3
+│   │   ├── middleware/           # auth.middleware.js & errorHandler.js
+│   │   ├── routes/index.js       # Routing API (/api/*)
+│   │   ├── app.js                # Konfigurasi Express app
+│   │   └── server.js             # Entry point server backend
+│   ├── tests/smoke.test.js       # Unit & smoke test kriptografi/stego/dongle (node:test)
+│   ├── tools/dongle-cli.js       # Utilitas CLI manajemen dongle
 │   ├── .env.example
 │   └── package.json
-├── docs/                     # Dokumentasi teknis proyek
-├── AGENTS.md                 # Petunjuk agen AI pengembang
-├── TEST_PLAN.md              # Rencana dan checklist pengujian
-└── README.md                 # Dokumentasi utama proyek
+├── frontend/                     # Aplikasi antarmuka React 18.3.1 + Vite (Port 5173)
+│   ├── public/models/            # Bobot neural network face-api
+│   ├── src/
+│   │   ├── components/           # LoginPage, MessageTab, VaultTab, StegoTab, BlockchainTab, AuditTab, Modals
+│   │   ├── context/ThemeContext.jsx
+│   │   ├── services/api.js       # Klien HTTP API
+│   │   ├── utils/                # cryptoHelper.js (Ed25519) & faceHelper.js (Mirror/HUD/ResNet-34)
+│   │   ├── App.jsx               # Root layout & navigasi tab
+│   │   ├── index.css             # Variabel tema Light/Dark & komponen Detective Dossier
+│   │   ├── main.jsx              # Entry point React
+│   │   └── smoke.test.js         # Unit test helper wajah & kriptografi (Vitest)
+│   ├── .eslintrc.cjs
+│   ├── tailwind.config.js
+│   ├── vite.config.js
+│   └── package.json
+├── usb-agent/                    # Daemon lokal pemindaian USB & signing Ed25519 (Port 8787)
+│   ├── src/
+│   │   ├── discovery.js          # Deteksi drive removable & folder KryptoInfoDongle/KriptoInfoDongle
+│   │   ├── dongle.js             # Pembacaan, validasi, penyimpanan & signing PKCS#8 Ed25519
+│   │   └── server.js             # HTTP server lokal USB Agent (/api/status, /api/sign, /api/save-dongle)
+│   ├── test/dongle.test.js       # Unit test discovery, saveDongleToFolder, & signing (node:test)
+│   ├── server.js
+│   ├── .env.example
+│   └── package.json
+├── docs/                         # Dokumentasi arsitektur, model keamanan, setup, & pembagian tugas
+├── run-all.bat                   # Launcher cepat Windows (MariaDB + Backend + USB Agent + Frontend)
+├── stop-all.bat                  # Script cepat menghentikan layanan port 3001, 8787, 5173
+├── AGENTS.md                     # Panduan aturan pengembangan proyek
+├── TEST_PLAN.md                  # Rencana dan checklist pengujian
+└── README.md                     # Dokumentasi utama proyek
 ```
 
-## 7. Persyaratan Sistem
+---
 
-- Windows 10/11.
-- Node.js LTS.
-- npm.
-- XAMPP dengan MariaDB.
-- Browser modern yang mendukung webcam API.
-- Webcam laptop.
-- USB flash drive biasa.
+## 6. Persyaratan Sistem & Konfigurasi Database
 
-## 8. Konfigurasi Database
+### Persyaratan Sistem
+- Windows 10 / 11 (untuk deteksi USB DriveInfo & launcher `.bat`).
+- Node.js `>= 20.19.0` dan npm.
+- XAMPP dengan MariaDB / MySQL aktif pada port `3306`.
+- Browser modern dengan akses Webcam (Chrome / Edge).
+- USB flash drive standar (untuk penyimpanan dongle Ed25519 pada folder `KriptoInfoDongle`).
 
-Database menggunakan MariaDB dari XAMPP.
-
-| Konfigurasi | Nilai |
+### Konfigurasi Database
+| Konfigurasi | Nilai Default |
 |---|---|
-| Host | 127.0.0.1 |
-| Port | 3306 |
-| Database | kryptoinfo |
-| Username | root |
-| Password | Kosong |
+| Host | `127.0.0.1` |
+| Port | `3306` |
+| Database | `kryptoinfo` |
+| Username | `root` |
+| Password | Kosong (sesuaikan `DATABASE_URL` di `backend/.env` jika berbeda) |
 
-Konfigurasi lokal disimpan pada file `.env` dan tidak boleh dimasukkan ke repository Git.
+> **Penting:** Berkas `.env` dan *private key* dongle tidak boleh dimasukkan ke repository Git.
 
-## 9. Cara Menjalankan Proyek
+---
 
-Jalankan ketiga modul secara bersamaan di terminal terpisah:
+## 7. Cara Menjalankan Proyek
 
-### Langkah 1: Persiapan Database
-1. Buka XAMPP Control Panel, lalu klik **Start** pada modul **MySQL**.
-2. Buat database baru bernama `kryptoinfo` melalui phpMyAdmin (`http://localhost/phpmyadmin`) atau MySQL CLI:
-   ```sql
-   CREATE DATABASE kryptoinfo;
-   ```
+### Opsi A — Cara Cepat di Windows (`run-all.bat`)
+Setelah `.env`, dependensi (`npm install` di tiap paket), dan database `kryptoinfo` (`npx prisma generate && npx prisma migrate dev`) disiapkan satu kali:
+1. Jalankan **`run-all.bat`** di folder root proyek (otomatis mengecek MariaDB port `3306`, menjalankan **Backend API** `3001`, **USB Agent** `8787`, **Frontend** `5173`, lalu membuka browser).
+2. Untuk menghentikan seluruh layanan sekaligus, jalankan **`stop-all.bat`**.
 
-### Langkah 2: Menjalankan Backend API
+### Opsi B — Jalankan Manual di Terminal Terpisah
+
+#### 1. Persiapan Database
+Buat database `kryptoinfo` pada MariaDB (XAMPP Control Panel → Start **MySQL** → phpMyAdmin):
+```sql
+CREATE DATABASE IF NOT EXISTS kryptoinfo;
+```
+
+#### 2. Menjalankan Backend API (`Port 3001`)
 ```bash
 cd backend
-# Salin file environment jika belum ada
 cp .env.example .env
-
-# Lengkapi ENCRYPTION_KEY (64 karakter hex) dan ENROLLMENT_CODE di .env
+# Isi ENCRYPTION_KEY (64 karakter hex) dan ENROLLMENT_CODE di backend/.env
 npm install
 npx prisma generate
 npx prisma migrate dev
 npm run dev
 ```
-Backend akan aktif di `http://localhost:3001`.
 
-### Langkah 3: Menjalankan USB Companion Agent
-Buka terminal baru:
+#### 3. Menjalankan USB Companion Agent (`Port 8787`)
 ```bash
 cd usb-agent
 cp .env.example .env
 npm install
 npm run dev
 ```
-USB Agent akan aktif di `http://127.0.0.1:8787`.
 
-### Langkah 4: Menjalankan Frontend
-Buka terminal baru:
+#### 4. Menjalankan Frontend (`Port 5173`)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Akses antarmuka web melalui browser pada alamat `http://localhost:5173` (atau port yang ditampilkan Vite).
+Buka `http://localhost:5173` melalui browser.
 
 ---
 
-## 10. Pengujian Otomatis
+## 8. Pengujian Otomatis & Build Verification
 
-Proyek dilengkapi serangkaian pengujian unit dan integrasi:
+Proyek telah dilengkapi unit test, linter, dan production build verification pada seluruh modul:
 
 ```bash
-# Pengujian modul kriptografi & steganografi backend
-cd backend
-npm test
+# 1. Backend tests (9/9 passed - Vigenère, AES-GCM, ChaCha20 5-Lapis, Hybrid 5-Lapis, Stego, Ed25519)
+npm test --prefix backend
 
-# Pengujian pemindaian dongle & signing USB Agent
-cd usb-agent
-npm test
+# 2. USB Agent tests (7/7 passed - Discovery KriptoInfoDongle/KryptoInfoDongle, saveDongleToFolder, Signing)
+npm test --prefix usb-agent
 
-# Pengujian smoke test frontend
-cd frontend
-npm test
+# 3. Frontend lint, unit tests (7/7 passed - faceHelper mirror/proximity, cryptoHelper), & Vite build
+npm run lint --prefix frontend
+npm test --prefix frontend -- --run
+npm run build --prefix frontend
 ```
-
-## 11. Keamanan dan Keterbatasan
-
-- USB flash drive biasa bukan hardware security module atau FIDO2 security key. Private key yang disimpan di dalamnya berpotensi disalin.
-- Liveness detection sederhana bukan sistem anti-spoofing profesional.
-- Vigenere Cipher hanya digunakan sebagai demonstrasi akademik, bukan sebagai perlindungan modern yang berdiri sendiri.
-- Blockchain yang digunakan merupakan centralized educational hash-chain, bukan blockchain terdesentralisasi.
-- Kunci enkripsi harus dikelola terpisah dari password hash.
-- Rahasia dan data biometrik tidak boleh dimasukkan ke repository.
-
-## 12. Status Pengembangan
-
-Proyek dikembangkan secara bertahap:
-
-- [x] Perencanaan dan dokumentasi awal
-- [x] PHASE 1 — Project Foundation (Backend + Frontend setup, Prisma + MariaDB)
-- [x] PHASE 2 — Three-Layer Authentication (Password + USB Ed25519 + Face biometric)
-- [x] PHASE 3 — Cryptography Modules (Vigenere → AES-256-GCM → ChaCha20)
-- [x] PHASE 4 — Image Steganography (LSB PNG embed/extract dengan AES)
-- [x] PHASE 5 — Blockchain Asset (SHA-256 immutable chain + integrity verification)
-- [ ] PHASE 6 — Security Testing and Documentation (⏳ Manual testing in progress)
-
-**Update 4 Nov 2026**: Semua fitur backend + frontend complete. Bug stego API diperbaiki. Lihat [TEST_PLAN.md](TEST_PLAN.md) untuk checklist pengujian lengkap.
-
-Checklist akan diperbarui berdasarkan hasil implementasi dan pengujian yang benar-benar dilakukan.
-
-## 13. Tim Pengembang
-
-**Adhafa Joan Putranto**
-- Backend development
-- Database management
-- Authentication
-- Cryptographic implementation
-
-**Mirwan Qolyubi (123240116)**
-- Frontend development
-- UI/UX implementation
-- Steganography interface and integration
-- Testing and documentation
-
-Kedua anggota bertanggung jawab atas integrasi, pengujian, dan penyelesaian proyek secara keseluruhan.
 
 ---
 
-*KryptoInfo — Your Digital Assets. Protected by Three Layers.*
+## 9. Keamanan dan Keterbatasan
+
+- **USB Flash Drive Standar:** Flashdisk biasa bukan *Hardware Security Module* (HSM) atau FIDO2 security key; salinan file JSON dapat diduplikasi secara fisik jika flashdisk tidak diamankan secara fisik.
+- **Deteksi Wajah Berbasis Webcam 2D:** Tidak menggunakan sensor kedalaman inframerah khusus sehingga bukan mekanisme *hardware anti-spoofing*.
+- **Vigenère Cipher:** Disertakan sebagai lapisan klasik untuk kebutuhan akademik mata kuliah Kriptografi dan selalu dipadukan di atas lapisan modern (`SHAKE-256`, `HKDF-SHA512`, `ChaCha20-Poly1305`, `AES-256-GCM`, `HMAC-SHA512`).
+- **Hash-Chain:** Rantai blok merupakan *centralized educational hash-chain* per pengguna di MariaDB, bukan jaringan konsensus terdesentralisasi publik.
+
+---
+
+## 10. Status Pengembangan
+
+- [x] **Perencanaan & Arsitektur Awal**
+- [x] **PHASE 1** — Fondasi Proyek (Express Backend + React 18 Vite Frontend + Prisma MariaDB)
+- [x] **PHASE 2** — Autentikasi Tiga Lapis (Argon2id + USB Dongle Ed25519 + Face Biometric ResNet-34 + Mirror & Proximity HUD + Auto-Save `KriptoInfoDongle`)
+- [x] **PHASE 3** — Modul Kriptografi Multi-Lapis (5-Layer Hybrid Cipher, 5-Layer Vault/File Cascade, SHA-256/SHA3-256/HMAC-SHA512)
+- [x] **PHASE 4** — Steganografi Citra PNG (4-Layer Encrypted LSB Embed/Extract & Kapasitas Bit)
+- [x] **PHASE 5** — Buku Besar Hash-Chain (Multi-Seal SHA-256 + SHA3-256 + HMAC-SHA512, Proof-of-Existence & Verifikasi Rantai)
+- [x] **PHASE 6** — Audit Log, Poles UI/UX Detective Dossier (Light & Dark Contrast), Dokumentasi, & Pengujian Otomatis (`23/23` unit test lintas modul lulus)
+
+---
+
+## 11. Tim Pengembang
+
+**Adhafa Joan Putranto (`123240069`)**
+- Arsitektur Backend & Manajemen Database (Prisma + MariaDB)
+- Autentikasi 3FA & Implementasi Kriptografi Multi-Lapis
+- Pengembangan USB Companion Agent & Integrasi End-to-End
+
+**Mirwan Qolyubi (`123240116`)**
+- Pengembangan Antarmuka Frontend (React 18.3.1 + Tailwind)
+- Implementasi UI/UX & Integrasi Modul Steganografi
+- Pengujian & Dokumentasi Proyek
+
+---
+
+*KryptoInfo (PIKATAN) — Your Digital Assets. Protected by Three Layers & Multi-Layer Cryptography.*

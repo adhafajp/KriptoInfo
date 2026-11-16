@@ -8,25 +8,18 @@ import {
   startFaceCamera,
   captureFaceDescriptor,
   captureFaceSamples,
-  detectFaceBox,
-  extractQuickDescriptor,
+  detectFaceRealtime,
   computeDisplayBox,
   stopFaceCamera
 } from '../utils/faceHelper';
 
 import {
   Shield,
-  KeyRound,
   Usb,
   ScanFace,
   Lock,
-  Unlock,
   Eye,
   EyeOff,
-  UserPlus,
-  LogIn,
-  Camera,
-  CameraOff,
   Fingerprint,
   CheckCircle2,
   AlertCircle,
@@ -46,7 +39,6 @@ export default function LoginPage({ onLoginSuccess }) {
   const [enrollmentCode, setEnrollmentCode] = useState('');
 
   const [daemonDongle, setDaemonDongle] = useState(null);
-  const [daemonOnline, setDaemonOnline] = useState(false);
 
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -54,9 +46,7 @@ export default function LoginPage({ onLoginSuccess }) {
 
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraStarting, setCameraStarting] = useState(false);
-  const [faceStatus, setFaceStatus] = useState(
-    'Kamera belum diaktifkan.'
-  );
+  const [faceStatus, setFaceStatus] = useState('Kamera belum diaktifkan.');
   const [detectedFaceBox, setDetectedFaceBox] = useState(null);
   const [faceMatchInfo, setFaceMatchInfo] = useState({ status: 'no_user' });
 
@@ -64,6 +54,21 @@ export default function LoginPage({ onLoginSuccess }) {
   const streamRef = useRef(null);
   const manualStoppedRef = useRef(false);
   const autoStartTimeoutRef = useRef(null);
+  const usernameRef = useRef(username);
+  const modeRef = useRef(mode);
+  const loadingRef = useRef(loading);
+
+  useEffect(() => {
+    usernameRef.current = username;
+  }, [username]);
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
 
   function closeCamera() {
     stopFaceCamera(streamRef.current);
@@ -101,147 +106,182 @@ export default function LoginPage({ onLoginSuccess }) {
     }
   }, [cameraActive]);
 
+  // Reset info kecocokan wajah saat username kosong atau mode berubah ke enroll
   useEffect(() => {
-    let active = true;
-    let timeoutId = null;
+    const cleanUser = username.trim();
+    if (!cleanUser || mode === 'enroll' || !cameraActive) {
+      setFaceMatchInfo({ status: 'no_user' });
+    }
+  }, [username, mode, cameraActive]);
 
-    async function trackLoop() {
+  // Satu loop terpadu (unified loop) untuk deteksi kotak wajah, kalkulasi jarak/kedekatan,
+  // caching descriptor biometrik, dan pencocokan identitas tanpa tabrakan GPU/WebGL.
+  useEffect(() => {
+    if (!cameraActive) {
+      setDetectedFaceBox(null);
+      return;
+    }
+
+    let active = true;
+    let timerId = null;
+    let lastDescriptorTime = 0;
+    let verifyInFlight = false;
+
+    async function unifiedBiometricLoop() {
       if (!active || !cameraActive || !videoRef.current) return;
+
+      // Jeda loop latar belakang saat sedang proses submit login/enroll agar CPU/GPU fokus penuh
+      if (loadingRef.current) {
+        timerId = setTimeout(unifiedBiometricLoop, 200);
+        return;
+      }
+
       try {
         if (videoRef.current.readyState >= 2 && videoRef.current.videoWidth > 0) {
-          const res = await detectFaceBox(videoRef.current);
-          if (active) {
-            if (res && res.box) {
-              const display = computeDisplayBox(res.box, videoRef.current);
-              if (display) {
+          const now = Date.now();
+          const shouldExtractDescriptor = now - lastDescriptorTime >= 900;
+
+          const res = await detectFaceRealtime(videoRef.current, {
+            includeDescriptor: shouldExtractDescriptor
+          });
+
+          if (active && res && !res.skipped) {
+            if (res.box) {
+              const display = computeDisplayBox(res.box, videoRef.current, true);
+              const scorePct = Math.round((res.score || 0) * 100);
+              const proximity = res.proximity;
+
+              if (display && proximity) {
                 setDetectedFaceBox({
                   ...display,
-                  score: Math.round(res.score * 100)
+                  score: scorePct,
+                  proximity
                 });
+
+                if (proximity.status === 'too_far') {
+                  setFaceStatus(
+                    `Wajah kurang dekat (${proximity.proximityPct}% • ~${proximity.distanceCm} cm). Majukan wajah ke kamera.`
+                  );
+                } else if (proximity.status === 'too_close') {
+                  setFaceStatus(
+                    `Wajah terlalu dekat (~${proximity.distanceCm} cm). Mundurkan sedikit wajah Anda.`
+                  );
+                } else {
+                  setFaceStatus(
+                    `Wajah terdeteksi optimal (Kedekatan ${proximity.proximityPct}% • ~${proximity.distanceCm} cm).`
+                  );
+                }
+              }
+
+              // Jika descriptor diekstrak pada siklus ini, perbarui waktu dan cek kecocokan akun bila mode login
+              if (shouldExtractDescriptor && res.descriptor) {
+                lastDescriptorTime = now;
+                const cleanUser = usernameRef.current.trim();
+
+                if (
+                  cleanUser.length >= 3 &&
+                  modeRef.current === 'login' &&
+                  proximity?.isOptimal &&
+                  !verifyInFlight
+                ) {
+                  verifyInFlight = true;
+                  authApi
+                    .verifyFace(cleanUser, res.descriptor)
+                    .then(verifyRes => {
+                      if (!active) return;
+                      if (verifyRes.success && verifyRes.data) {
+                        if (verifyRes.data.userFound) {
+                          setFaceMatchInfo({
+                            status: verifyRes.data.match ? 'matched' : 'mismatched',
+                            distance: verifyRes.data.distance,
+                            threshold: verifyRes.data.threshold,
+                            username: cleanUser
+                          });
+                        } else {
+                          setFaceMatchInfo({
+                            status: 'user_not_found',
+                            username: cleanUser
+                          });
+                        }
+                      }
+                    })
+                    .catch(() => {})
+                    .finally(() => {
+                      verifyInFlight = false;
+                    });
+                }
               }
             } else {
               setDetectedFaceBox(null);
+              setFaceStatus('Wajah belum terdeteksi. Arahkan wajah ke tengah kamera.');
             }
+          } else if (active && res === null) {
+            setDetectedFaceBox(null);
+            setFaceStatus('Wajah belum terdeteksi. Arahkan wajah ke tengah kamera.');
           }
         }
       } catch {
-        // error tracking loop dilewati agar tidak mengganggu video
+        // Abaikan error transien agar stream video tetap mulus
       }
 
       if (active && cameraActive) {
-        timeoutId = setTimeout(trackLoop, 100);
+        timerId = setTimeout(unifiedBiometricLoop, 130);
       }
     }
 
-    if (cameraActive) {
-      trackLoop();
-    } else {
-      setDetectedFaceBox(null);
-    }
+    unifiedBiometricLoop();
 
     return () => {
       active = false;
-      if (timeoutId) clearTimeout(timeoutId);
+      if (timerId) clearTimeout(timerId);
     };
   }, [cameraActive]);
 
-  // Loop pencocokan biometrik wajah terhadap username yang diketik
   useEffect(() => {
     let active = true;
-    let timer = null;
+    let timerId = null;
     const cleanUser = username.trim();
-
-    if (!cleanUser || mode === 'enroll' || !cameraActive) {
-      setFaceMatchInfo({ status: 'no_user' });
-      return;
-    }
-
-    async function checkFaceIdentity() {
-      if (!active || !cameraActive || !videoRef.current) return;
-      try {
-        if (videoRef.current.readyState >= 2 && videoRef.current.videoWidth > 0) {
-          const descriptor = await extractQuickDescriptor(videoRef.current);
-          if (active && descriptor) {
-            const res = await authApi.verifyFace(cleanUser, descriptor);
-            if (active && res.success && res.data) {
-              if (res.data.userFound) {
-                setFaceMatchInfo({
-                  status: res.data.match ? 'matched' : 'mismatched',
-                  distance: res.data.distance,
-                  threshold: res.data.threshold,
-                  username: cleanUser
-                });
-              } else {
-                setFaceMatchInfo({ status: 'user_not_found', username: cleanUser });
-              }
-            }
-          }
-        }
-      } catch {
-        // error loop dilewati
-      }
-
-      if (active && cameraActive) {
-        timer = setTimeout(checkFaceIdentity, 800);
-      }
-    }
-
-    timer = setTimeout(checkFaceIdentity, 300);
-
-    return () => {
-      active = false;
-      if (timer) clearTimeout(timer);
-    };
-  }, [username, cameraActive, mode]);
-
-  useEffect(() => {
-    let active = true;
-    const cleanUser = username.trim();
-
-    if (!cleanUser) {
-      setDaemonDongle(null);
-      fetch('http://127.0.0.1:8787/api/status', { signal: AbortSignal.timeout(1500) })
-        .then(res => { if (active) setDaemonOnline(res.ok); })
-        .catch(() => { if (active) setDaemonOnline(false); });
-      return;
-    }
 
     async function checkDaemon() {
+      if (!active) return;
       try {
-        const res = await fetch(`http://127.0.0.1:8787/api/status?username=${encodeURIComponent(cleanUser)}`, {
-          signal: AbortSignal.timeout(1500)
+        const query = cleanUser ? `?username=${encodeURIComponent(cleanUser)}` : '';
+        const res = await fetch(`http://127.0.0.1:8787/api/status${query}`, {
+          signal: AbortSignal.timeout(4500),
+          cache: 'no-store'
         });
         if (res.ok) {
           const data = await res.json();
           if (active) {
-            setDaemonOnline(true);
-            let found = null;
-            if (data.dongles && data.dongles.length > 0) {
-              found = data.dongles.find(d =>
-                (d.username && d.username.toLowerCase() === cleanUser.toLowerCase()) ||
-                (d.fileName && d.fileName.toLowerCase() === `kryptoinfo-dongle-${cleanUser.toLowerCase()}.json`)
-              ) || (data.dongleDetected ? data.dongles[0] : null);
-            } else if (data.dongleDetected && data.fileName?.toLowerCase().includes(cleanUser.toLowerCase())) {
-              found = data;
+            if (data.detected || data.dongleDetected || (data.dongles && data.dongles.length > 0)) {
+              const selected = data.dongle || data.dongles?.[0] || null;
+              setDaemonDongle(selected ? {
+                ...selected,
+                matchedForUser: Boolean(data.matchedForUser),
+                totalCount: data.count || (data.dongles ? data.dongles.length : 1)
+              } : null);
+            } else {
+              setDaemonDongle(null);
             }
-            setDaemonDongle(found);
           }
-          return;
+        } else if (active) {
+          setDaemonDongle(null);
         }
       } catch {
-        // Daemon offline
+        if (active) {
+          setDaemonDongle(null);
+        }
       }
+
       if (active) {
-        setDaemonOnline(false);
-        setDaemonDongle(null);
+        timerId = setTimeout(checkDaemon, 1500);
       }
     }
 
     checkDaemon();
-    const interval = setInterval(checkDaemon, 2000);
     return () => {
       active = false;
-      clearInterval(interval);
+      if (timerId) clearTimeout(timerId);
     };
   }, [username]);
 
@@ -268,7 +308,7 @@ export default function LoginPage({ onLoginSuccess }) {
     }
   }
 
-  // Smart Auto-Start: nyalakan kamera saat user mengetik username (debounce 800ms)
+  // Smart Auto-Start: nyalakan kamera saat user mengetik username (debounce 600ms)
   useEffect(() => {
     const clean = username.trim();
     if (clean.length < 3 || cameraActive || cameraStarting || manualStoppedRef.current) return;
@@ -277,7 +317,7 @@ export default function LoginPage({ onLoginSuccess }) {
 
     autoStartTimeoutRef.current = setTimeout(() => {
       handleStartCamera();
-    }, 800);
+    }, 600);
 
     return () => {
       if (autoStartTimeoutRef.current) clearTimeout(autoStartTimeoutRef.current);
@@ -305,20 +345,18 @@ export default function LoginPage({ onLoginSuccess }) {
     return descriptor;
   }
 
-  // Login memakai 3 sampel individu (matriks) — backend mensyaratkan SEMUA sampel
-  // berada di bawah ambang batas agar tombol putih/wajah generik tidak lolos.
   async function getLoginFaceSamples() {
     if (!cameraActive || !videoRef.current) {
       throw new Error('Aktifkan kamera terlebih dahulu.');
     }
 
-    setFaceStatus('Memulai pemindaian biometrik ketat (3 sampel)...');
+    setFaceStatus('Memvalidasi sampel biometrik wajah...');
 
     const samples = await captureFaceSamples(videoRef.current, (current, total) => {
-      setFaceStatus(`Mengambil sampel ketat ${current}/${total} (semua harus lolos)...`);
+      setFaceStatus(`Memverifikasi sampel wajah (${current}/${total})...`);
     });
 
-    setFaceStatus('Pemindaian ketat selesai.');
+    setFaceStatus('Sampel biometrik wajah tervalidasi.');
 
     return samples;
   }
@@ -339,12 +377,8 @@ export default function LoginPage({ onLoginSuccess }) {
       return;
     }
 
-    if (faceMatchInfo?.status === 'mismatched' || faceMatchInfo?.status === 'user_not_found') {
-      setError(`Wajah di kamera tidak cocok dengan pemilik akun @${username.trim()}. Akses ditolak.`);
-      return;
-    }
-
     setLoading(true);
+    loadingRef.current = true;
 
     try {
       const faceDescriptor = await getLoginFaceSamples();
@@ -364,7 +398,8 @@ export default function LoginPage({ onLoginSuccess }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           challengeText: challenge,
-          dongleId: daemonDongle?.id
+          dongleId: daemonDongle?.id,
+          username: username.trim()
         })
       });
       const signData = await signRes.json();
@@ -397,12 +432,13 @@ export default function LoginPage({ onLoginSuccess }) {
         if (onLoginSuccess) {
           onLoginSuccess(loginRes.data);
         }
-      }, 500);
+      }, 400);
 
     } catch (err) {
       setError(err.message || 'Login gagal.');
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   }
 
@@ -422,6 +458,7 @@ export default function LoginPage({ onLoginSuccess }) {
     }
 
     setLoading(true);
+    loadingRef.current = true;
 
     try {
       const faceDescriptor = await getCurrentFaceDescriptor();
@@ -455,7 +492,9 @@ export default function LoginPage({ onLoginSuccess }) {
         const usbSaveData = await usbSaveRes.json();
         if (usbSaveRes.ok && usbSaveData.success) {
           savedToUsb = true;
-          usbMsg = `Kunci dongle langsung tersimpan di flashdisk (${usbSaveData.drive}KryptoInfoDongle).`;
+          const folderName = usbSaveData.folder || 'KriptoInfoDongle';
+          const driveLabel = usbSaveData.drive || '';
+          usbMsg = `Kunci dongle langsung tersimpan di flashdisk (${driveLabel}${folderName}).`;
         }
       } catch {
         // USB agent offline atau gagal terhubung
@@ -494,6 +533,7 @@ export default function LoginPage({ onLoginSuccess }) {
       setError(err.message || 'Pendaftaran gagal.');
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   }
 
@@ -504,11 +544,63 @@ export default function LoginPage({ onLoginSuccess }) {
     setMode(nextMode);
   }
 
-  const factors = [
-    { id: 'password', label: 'Password', icon: Lock, ready: password.length > 0 },
-    { id: 'usb', label: 'USB Dongle', icon: Usb, ready: !!daemonDongle },
-    { id: 'face', label: 'Face ID', icon: ScanFace, ready: cameraActive },
-  ];
+  // Penentuan status visual deteksi wajah yang beradaptasi dengan tema (Light Dossier / Dark Night Lamp)
+  const proximity = detectedFaceBox?.proximity || null;
+  const isFaceDetected = Boolean(detectedFaceBox);
+  const isProximityOptimal = Boolean(proximity?.isOptimal);
+  const isIdentityMismatch = mode === 'login' && faceMatchInfo.status === 'mismatched';
+  const isIdentityMatched = mode === 'login' && faceMatchInfo.status === 'matched';
+
+  // Skema warna kotak pelacak di atas video & banner status sesuai tema
+  const getReticleTheme = () => {
+    if (!isFaceDetected) {
+      return {
+        border: 'border-red-500/70',
+        corner: 'border-red-500',
+        glow: '',
+        topBadgeBg: isDark ? 'bg-red-950/90 text-red-200 border-red-700' : 'bg-red-900/90 text-white border-red-950',
+        bottomBadgeBg: 'bg-stone-950/85 text-stone-200 border-stone-700',
+        statusLabel: 'BELUM TERDETEKSI'
+      };
+    }
+    if (!isProximityOptimal) {
+      return {
+        border: 'border-amber-400/90',
+        corner: 'border-amber-400',
+        glow: 'shadow-[0_0_15px_rgba(245,158,11,0.35)]',
+        topBadgeBg: isDark ? 'bg-amber-950/95 text-amber-300 border-amber-500' : 'bg-amber-600/95 text-white border-amber-800',
+        bottomBadgeBg: isDark ? 'bg-stone-950/90 text-amber-200 border-amber-700/70' : 'bg-amber-950/90 text-amber-100 border-amber-700',
+        statusLabel: proximity?.status === 'too_far' ? 'KURANG DEKAT' : 'TERLALU DEKAT'
+      };
+    }
+    if (isIdentityMismatch) {
+      return {
+        border: 'border-red-500/90',
+        corner: 'border-red-500',
+        glow: 'shadow-[0_0_18px_rgba(239,68,68,0.45)]',
+        topBadgeBg: 'bg-red-900/95 text-white border-red-400',
+        bottomBadgeBg: 'bg-red-950/90 text-red-200 border-red-700',
+        statusLabel: 'WAJAH TIDAK COCOK'
+      };
+    }
+    // Wajah Terdeteksi & Jarak Optimal -> Berubah sesuai tema (Meja Siang: Emerald-Sepia / Lampu Malam: Emerald-Amber Noir)
+    return {
+      border: isDark ? 'border-emerald-400/95' : 'border-emerald-500/95',
+      corner: isDark ? 'border-amber-400' : 'border-emerald-300',
+      glow: isDark
+        ? 'shadow-[0_0_20px_rgba(16,185,129,0.45)]'
+        : 'shadow-[0_0_18px_rgba(5,150,105,0.4)]',
+      topBadgeBg: isDark
+        ? 'bg-emerald-950/95 text-emerald-300 border-emerald-400'
+        : 'bg-emerald-800/95 text-amber-50 border-emerald-400',
+      bottomBadgeBg: isDark
+        ? 'bg-stone-950/90 text-amber-300 border-emerald-600/70'
+        : 'bg-stone-900/90 text-emerald-200 border-emerald-500/70',
+      statusLabel: isIdentityMatched ? `COCOK @${username.trim()}` : 'WAJAH TERDETEKSI'
+    };
+  };
+
+  const reticleTheme = getReticleTheme();
 
   return (
     <div className="h-screen w-screen desk-canvas flex items-center justify-center p-2 sm:p-3 overflow-hidden select-none transition-colors selection:bg-red-800 selection:text-white">
@@ -521,8 +613,8 @@ export default function LoginPage({ onLoginSuccess }) {
               <span className="rubber-stamp text-[10px] tracking-widest text-red-800 dark:text-red-500 border-red-800 dark:border-red-500">
                 CONFIDENTIAL
               </span>
-              <span className="font-mono text-[9px] text-stone-800 dark:text-amber-500/90 font-bold tracking-widest uppercase">
-                CASE // LIPUTAN-2026-X
+              <span className="font-mono text-[9px] text-stone-900 dark:text-amber-300 font-bold tracking-widest uppercase">
+                CASE {'//'} LIPUTAN-2026-X
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-serif font-black tracking-tight text-stone-900 dark:text-amber-400 drop-shadow-sm">
@@ -570,19 +662,64 @@ export default function LoginPage({ onLoginSuccess }) {
 
             {/* LEFT: Polaroid Camera Suspect/Target Scanner (5 Cols) */}
             <div className="lg:col-span-5 space-y-2">
-              <div className="polaroid-frame relative overflow-visible">
-                {/* Real Red 3D Push Pin pinned directly on Polaroid Corner */}
-                <div className="absolute top-2 left-2 w-4 h-4 rounded-full bg-red-600 shadow-md border border-red-950 z-30 flex items-center justify-center">
+              <div
+                className={`polaroid-frame relative overflow-visible transition-all duration-300 ${
+                  cameraActive && isFaceDetected && isProximityOptimal && !isIdentityMismatch
+                    ? isDark
+                      ? 'ring-2 ring-emerald-500/80 shadow-[0_0_25px_rgba(16,185,129,0.25)]'
+                      : 'ring-2 ring-emerald-700/80 shadow-[0_0_20px_rgba(4,120,87,0.2)]'
+                    : cameraActive && isFaceDetected && !isProximityOptimal
+                      ? 'ring-2 ring-amber-500/80'
+                      : ''
+                }`}
+              >
+                {/* Real Red/Emerald 3D Push Pin pinned directly on Polaroid Corner */}
+                <div
+                  className={`absolute top-2 left-2 w-4 h-4 rounded-full shadow-md border z-30 flex items-center justify-center transition-colors duration-300 ${
+                    cameraActive && isFaceDetected && isProximityOptimal && !isIdentityMismatch
+                      ? 'bg-emerald-600 border-emerald-950'
+                      : 'bg-red-600 border-red-950'
+                  }`}
+                >
                   <div className="w-1.5 h-1.5 rounded-full bg-white/80" />
                 </div>
-                
+
+                {/* Top Status Pill inside Polaroid Header */}
+                {cameraActive && (
+                  <div className="absolute top-2 right-2 z-30 flex items-center gap-1.5 px-2 py-0.5 rounded bg-stone-950/85 border border-stone-700 text-[9px] font-mono">
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        !isFaceDetected
+                          ? 'bg-red-500 animate-ping'
+                          : !isProximityOptimal
+                            ? 'bg-amber-400 animate-pulse'
+                            : isIdentityMismatch
+                              ? 'bg-red-500'
+                              : 'bg-emerald-400 animate-pulse'
+                      }`}
+                    />
+                    <span className="font-bold text-stone-100 tracking-wider">
+                      {!isFaceDetected
+                        ? 'MENCARI WAJAH...'
+                        : !isProximityOptimal
+                          ? `KURANG DEKAT (${proximity.proximityPct}%)`
+                          : isIdentityMismatch
+                            ? 'WAJAH TIDAK COCOK'
+                            : 'TERDETEKSI & OPTIMAL'}
+                    </span>
+                  </div>
+                )}
+
                 <div className="relative aspect-[4/3] bg-stone-900 rounded overflow-hidden flex items-center justify-center">
+                  {/* Video Kamera yang sudah di-MIRROR (scale-x-[-1]) */}
                   <video
                     ref={videoRef}
                     autoPlay
                     muted
                     playsInline
-                    className={`w-full h-full object-cover filter contrast-125 sepia-[0.2] ${cameraActive ? 'opacity-100' : 'opacity-0'}`}
+                    className={`w-full h-full object-cover scale-x-[-1] filter contrast-110 sepia-[0.12] transition-opacity duration-200 ${
+                      cameraActive ? 'opacity-100' : 'opacity-0'
+                    }`}
                   />
 
                   {!cameraActive && (
@@ -593,35 +730,175 @@ export default function LoginPage({ onLoginSuccess }) {
                           <span className="text-[10px] font-mono">Mengkalibrasi Biometrik...</span>
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => { manualStoppedRef.current = false; handleStartCamera(); }}>
-                          <ScanFace className="w-6 h-6 text-stone-500" />
-                          <span className="text-[10px] font-mono font-bold text-stone-300">POTRET SUBJEK (FACE ID)</span>
-                          <span className="text-[9px] font-mono text-stone-500">Klik untuk aktifkan sensor</span>
+                        <div
+                          className="flex flex-col items-center gap-1 cursor-pointer group"
+                          onClick={() => {
+                            manualStoppedRef.current = false;
+                            handleStartCamera();
+                          }}
+                        >
+                          <ScanFace className="w-7 h-7 text-stone-400 group-hover:text-amber-400 transition-colors" />
+                          <span className="text-[10px] font-mono font-bold text-stone-200 group-hover:text-white">
+                            POTRET SUBJEK (FACE ID)
+                          </span>
+                          <span className="text-[9px] font-mono text-stone-400">
+                            Klik untuk aktifkan sensor (Mirror Aktif)
+                          </span>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {cameraActive && (
-                    <div className="absolute inset-3 border border-dashed border-red-500/50 pointer-events-none flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-red-600" />
+                  {/* Bingkai Panduan Tengah saat Kamera Aktif namun Wajah Belum Terdeteksi */}
+                  {cameraActive && !isFaceDetected && (
+                    <div className="absolute inset-5 border border-dashed border-red-500/60 rounded pointer-events-none flex flex-col items-center justify-center gap-1 bg-black/20">
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-500/80 animate-ping" />
+                      <span className="px-2 py-0.5 rounded bg-black/70 text-[9px] font-mono font-bold text-red-300 tracking-wider">
+                        POSISIKAN WAJAH DI SINI
+                      </span>
+                    </div>
+                  )}
+
+                  {/* KOTAK DETEKSI WAJAH REAL-TIME (Mengikuti posisi wajah yang di-mirror) */}
+                  {cameraActive && detectedFaceBox && (
+                    <div
+                      style={{
+                        left: `${detectedFaceBox.left}px`,
+                        top: `${detectedFaceBox.top}px`,
+                        width: `${detectedFaceBox.width}px`,
+                        height: `${detectedFaceBox.height}px`
+                      }}
+                      className={`absolute pointer-events-none rounded-sm border-2 transition-all duration-100 ease-out ${reticleTheme.border} ${reticleTheme.glow}`}
+                    >
+                      {/* Siku-siku Sudut Taktis Detektif (Corner Brackets) */}
+                      <div className={`absolute -top-0.5 -left-0.5 w-3.5 h-3.5 border-t-4 border-l-4 ${reticleTheme.corner}`} />
+                      <div className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 border-t-4 border-r-4 ${reticleTheme.corner}`} />
+                      <div className={`absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 border-b-4 border-l-4 ${reticleTheme.corner}`} />
+                      <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 border-b-4 border-r-4 ${reticleTheme.corner}`} />
+
+                      {/* Label HUD Atas pada Kotak Wajah: Status & Akurasi */}
+                      <div
+                        className={`absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 rounded text-[8.5px] font-mono font-bold border shadow-sm ${reticleTheme.topBadgeBg}`}
+                      >
+                        {reticleTheme.statusLabel} &bull; {detectedFaceBox.score}%
+                      </div>
+
+                      {/* Label HUD Bawah pada Kotak Wajah: Angka Kedekatan & Estimasi Jarak */}
+                      {proximity && (
+                        <div
+                          className={`absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 rounded text-[8.5px] font-mono font-bold border shadow-sm ${reticleTheme.bottomBadgeBg}`}
+                        >
+                          DEKAT: {proximity.proximityPct}% (~{proximity.distanceCm}cm)
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
 
+                {/* Panel Informasi & Angka Kedekatan Wajah di dalam Polaroid putih (selalu teks gelap ber-kontras tinggi) */}
+                <div
+                  className={`mt-2 p-2 rounded border transition-all duration-300 font-mono ${
+                    !cameraActive
+                      ? 'bg-stone-100 border-stone-400 text-stone-900'
+                      : !isFaceDetected
+                        ? 'bg-red-50 border-red-400 text-red-950'
+                        : !isProximityOptimal
+                          ? 'bg-amber-50 border-amber-500 text-amber-950'
+                          : isIdentityMismatch
+                            ? 'bg-red-100 border-red-600 text-red-950'
+                            : 'bg-emerald-50 border-emerald-700 text-emerald-950'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {!cameraActive ? (
+                        <ScanFace className="w-3.5 h-3.5 text-stone-700 flex-shrink-0" />
+                      ) : isFaceDetected && isProximityOptimal && !isIdentityMismatch ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 text-emerald-700" />
+                      ) : (
+                        <AlertCircle
+                          className={`w-3.5 h-3.5 flex-shrink-0 ${
+                            !isFaceDetected || isIdentityMismatch ? 'text-red-700' : 'text-amber-700'
+                          }`}
+                        />
+                      )}
+                      <span className="text-[10px] font-bold truncate">
+                        {!cameraActive
+                          ? 'KAMERA BELUM AKTIF'
+                          : !isFaceDetected
+                            ? 'WAJAH BELUM TERDETEKSI'
+                            : proximity?.status === 'too_far'
+                              ? `KURANG DEKAT (+${proximity.deficitPct}% LAGI)`
+                              : proximity?.status === 'too_close'
+                                ? 'WAJAH TERLALU DEKAT'
+                                : isIdentityMismatch
+                                  ? `TIDAK COCOK DENGAN @${username.trim()}`
+                                  : isIdentityMatched
+                                    ? `TERDETEKSI & COCOK (@${username.trim()})`
+                                    : 'WAJAH TERDETEKSI & JARAK IDEAL'}
+                      </span>
+                    </div>
+
+                    {/* Angka Persentase Kedekatan & Jarak */}
+                    <span className="text-[10px] font-black flex-shrink-0">
+                      {cameraActive && proximity
+                        ? `${proximity.proximityPct}% (~${proximity.distanceCm}cm)`
+                        : '0% (-- cm)'}
+                    </span>
+                  </div>
+
+                  {/* Bar Indikator Angka Kedekatan Wajah (0% - 100%) */}
+                  <div className="mt-1.5 w-full h-1.5 bg-stone-300 rounded-full overflow-hidden">
+                    <div
+                      style={{
+                        width: `${cameraActive && proximity ? Math.min(100, proximity.proximityPct) : 0}%`
+                      }}
+                      className={`h-full transition-all duration-150 rounded-full ${
+                        !isFaceDetected
+                          ? 'bg-red-600'
+                          : !isProximityOptimal
+                            ? 'bg-amber-600'
+                            : isIdentityMismatch
+                              ? 'bg-red-700'
+                              : 'bg-emerald-700'
+                      }`}
+                    />
+                  </div>
+
+                  <div className="mt-1 flex items-center justify-between text-[8.5px] font-bold">
+                    <span className="truncate">{faceStatus}</span>
+                    {cameraActive && proximity && (
+                      <span className="flex-shrink-0 ml-1">
+                        {proximity.faceSizePx}px / min {proximity.minRequiredPx}px
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 <div className="pt-1.5 px-1 flex items-center justify-between">
                   <div>
-                    <p className="font-serif italic font-bold text-[11px] text-stone-800">
+                    <p className="font-serif italic font-bold text-[11px] text-stone-900">
                       Subjek: @{username || 'Anonymous'}
                     </p>
-                    <p className="text-[9px] font-mono text-stone-500">
-                      ResNet-34 // 128-float Euclidean
+                    <p className="text-[9px] font-mono font-bold text-stone-700">
+                      Mirror Aktif {'//'} 128-D ResNet-34
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={cameraActive ? handleStopCamera : () => { manualStoppedRef.current = false; handleStartCamera(); }}
-                    className="px-2 py-0.5 text-[10px] font-mono rounded border border-stone-400 hover:bg-stone-200"
+                    onClick={
+                      cameraActive
+                        ? handleStopCamera
+                        : () => {
+                            manualStoppedRef.current = false;
+                            handleStartCamera();
+                          }
+                    }
+                    className={`px-2.5 py-0.5 text-[10px] font-mono font-bold rounded border transition-colors ${
+                      cameraActive
+                        ? 'border-stone-400 text-stone-800 hover:bg-stone-200'
+                        : 'border-red-700 bg-red-700 text-white hover:bg-red-800'
+                    }`}
                   >
                     {cameraActive ? 'Matikan' : 'Aktifkan'}
                   </button>
@@ -639,48 +916,48 @@ export default function LoginPage({ onLoginSuccess }) {
                 <p className="text-[9.5px] leading-tight text-amber-950 font-medium">
                   &bull; 1. Sandi Argon2id (Pengetahuan)<br />
                   &bull; 2. USB Dongle Ed25519 (Fisik)<br />
-                  &bull; 3. Verifikasi Wajah &le; 0.60 (Biometrik)
+                  &bull; 3. Wajah Kedekatan &ge; 100% / &le; 60cm (Biometrik)
                 </p>
               </div>
             </div>
 
             {/* RIGHT: Dossier Form & Dongle Hardware Verification (7 Cols) */}
-            <div className="lg:col-span-7 flex flex-col justify-between space-y-5">
+            <div className="lg:col-span-7 flex flex-col justify-between space-y-4">
               
               <div>
-                <div className="flex border-b border-stone-300 dark:border-stone-700/80 mb-4 gap-2">
+                <div className="flex border-b border-stone-400/50 dark:border-stone-700/80 mb-3 gap-2">
                   <button
                     type="button"
                     onClick={() => changeMode('login')}
                     className={`pb-2 px-3 text-xs font-mono font-bold uppercase tracking-wider transition-colors border-b-2 ${
                       mode === 'login'
-                        ? 'border-red-600 text-red-600 dark:text-red-400'
-                        : 'border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                        ? 'border-red-700 text-red-700 dark:border-red-400 dark:text-red-400'
+                        : 'border-transparent text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white'
                     }`}
                   >
-                    [1. AKSES BRANKAS]
+                    AKSES BRANKAS
                   </button>
                   <button
                     type="button"
                     onClick={() => changeMode('enroll')}
                     className={`pb-2 px-3 text-xs font-mono font-bold uppercase tracking-wider transition-colors border-b-2 ${
                       mode === 'enroll'
-                        ? 'border-red-600 text-red-600 dark:text-red-400'
-                        : 'border-transparent text-stone-500 hover:text-stone-800 dark:hover:text-stone-200'
+                        ? 'border-red-700 text-red-700 dark:border-red-400 dark:text-red-400'
+                        : 'border-transparent text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white'
                     }`}
                   >
-                    [2. PENDAFTARAN AGEN]
+                    PENDAFTARAN AGEN
                   </button>
                 </div>
 
                 {error && (
-                  <div className="p-3 mb-4 bg-red-900/20 border-l-4 border-red-600 text-xs font-mono text-red-700 dark:text-red-300">
+                  <div className="p-2.5 mb-3 bg-red-900/20 border-l-4 border-red-600 text-xs font-mono text-red-700 dark:text-red-300">
                     <strong>PERINGATAN:</strong> {error}
                   </div>
                 )}
 
                 {message && (
-                  <div className="p-3 mb-4 bg-emerald-900/20 border-l-4 border-emerald-600 text-xs font-mono text-emerald-800 dark:text-emerald-300">
+                  <div className="p-2.5 mb-3 bg-emerald-900/20 border-l-4 border-emerald-600 text-xs font-mono text-emerald-800 dark:text-emerald-300">
                     {message}
                   </div>
                 )}
@@ -697,7 +974,7 @@ export default function LoginPage({ onLoginSuccess }) {
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         className="w-full pl-9 pr-3 py-1.5 bg-[#fdfcf7] dark:bg-[#121110] border-2 border-stone-400 dark:border-stone-600 rounded text-xs font-mono font-bold text-stone-900 dark:text-amber-100 focus:border-red-600 focus:outline-none shadow-inner"
-                        placeholder="Contoh: mirwan24"
+                        placeholder="Contoh: card_immortal_emperor_god"
                         required
                       />
                     </div>
@@ -743,21 +1020,98 @@ export default function LoginPage({ onLoginSuccess }) {
                     </div>
                   )}
 
-                  <div className="p-2.5 bg-[#e4dac4] dark:bg-[#25211d] border-2 border-stone-400 dark:border-stone-600 rounded text-xs font-mono flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Usb className={`w-4 h-4 ${daemonDongle ? 'text-emerald-900 dark:text-emerald-400' : 'text-stone-700 dark:text-stone-400'}`} />
-                      <div>
-                        <span className="font-bold text-[10px] text-stone-900 dark:text-amber-100 block">
-                          {daemonDongle ? 'DONGLE USB TERVERIFIKASI' : 'STATUS PERANGKAT KERAS // USB DONGLE'}
+                  {/* Indikator Status Sensor Wajah (Berubah warna mengikuti tema saat wajah terdeteksi optimal) */}
+                  <div
+                    className={`p-2.5 border-2 rounded text-xs font-mono flex items-center justify-between transition-all duration-300 ${
+                      cameraActive && isFaceDetected && isProximityOptimal && !isIdentityMismatch
+                        ? 'bg-emerald-900/10 dark:bg-emerald-950/40 border-emerald-700 dark:border-emerald-500/80'
+                        : cameraActive && isFaceDetected && !isProximityOptimal
+                          ? 'bg-amber-900/10 dark:bg-amber-950/40 border-amber-600 dark:border-amber-500/80'
+                          : 'bg-[#e4dac4] dark:bg-[#25211d] border-stone-400 dark:border-stone-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ScanFace
+                        className={`w-4 h-4 flex-shrink-0 ${
+                          cameraActive && isFaceDetected && isProximityOptimal && !isIdentityMismatch
+                            ? 'text-emerald-900 dark:text-emerald-400'
+                            : cameraActive && isFaceDetected && !isProximityOptimal
+                              ? 'text-amber-800 dark:text-amber-400'
+                              : 'text-stone-700 dark:text-stone-400'
+                        }`}
+                      />
+                      <div className="min-w-0">
+                        <span className="font-bold text-[10px] text-stone-900 dark:text-amber-100 block truncate">
+                          {cameraActive && isFaceDetected && isProximityOptimal && !isIdentityMismatch
+                            ? 'BIOMETRIK WAJAH TERDETEKSI & SIAP'
+                            : cameraActive && isFaceDetected && !isProximityOptimal
+                              ? `WAJAH KURANG DEKAT (${proximity.proximityPct}% DARI 100%)`
+                              : 'STATUS SENSOR // DETEKSI WAJAH'}
                         </span>
-                        <span className="text-[10px] text-stone-700 dark:text-stone-300 font-medium">
-                          {daemonDongle ? `Drive letter: ${daemonDongle.driveLetter} (Ed25519 Ready)` : 'Colokkan flashdisk berisi file kunci dongle'}
+                        <span className="text-[10px] text-stone-700 dark:text-stone-300 font-medium block truncate">
+                          {!cameraActive
+                            ? 'Kamera belum aktif — klik Aktifkan pada bingkai Polaroid'
+                            : !isFaceDetected
+                              ? 'Belum ada wajah terdeteksi di depan kamera'
+                              : !isProximityOptimal
+                                ? `Jarak ~${proximity.distanceCm} cm (Majukan wajah hingga ≤ ${proximity.targetMaxCm} cm)`
+                                : isIdentityMismatch
+                                  ? `Wajah tidak cocok dengan akun @${username.trim()}`
+                                  : `Kedekatan ${proximity.proximityPct}% (~${proximity.distanceCm} cm) • Akurasi ${detectedFaceBox.score}%`}
+                        </span>
+                      </div>
+                    </div>
+                    {cameraActive && isFaceDetected && (
+                      <span
+                        className={`rubber-stamp text-[9px] font-black flex-shrink-0 ml-2 ${
+                          isProximityOptimal && !isIdentityMismatch
+                            ? 'text-emerald-900 dark:text-emerald-400 border-emerald-900 dark:border-emerald-400'
+                            : !isProximityOptimal
+                              ? 'text-amber-900 dark:text-amber-400 border-amber-800 dark:border-amber-400'
+                              : 'text-red-800 dark:text-red-400 border-red-800 dark:border-red-400'
+                        }`}
+                      >
+                        {isProximityOptimal && !isIdentityMismatch
+                          ? isIdentityMatched
+                            ? 'VERIFIED'
+                            : 'DETECTED'
+                          : `${proximity.proximityPct}%`}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Indikator Status Perangkat Keras USB Dongle */}
+                  <div
+                    className={`p-2.5 border-2 rounded text-xs font-mono flex items-center justify-between transition-all duration-300 ${
+                      daemonDongle
+                        ? 'bg-emerald-900/10 dark:bg-emerald-950/40 border-emerald-700 dark:border-emerald-500/80'
+                        : 'bg-[#e4dac4] dark:bg-[#25211d] border-stone-400 dark:border-stone-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Usb
+                        className={`w-4 h-4 flex-shrink-0 ${
+                          daemonDongle ? 'text-emerald-900 dark:text-emerald-400' : 'text-stone-700 dark:text-stone-400'
+                        }`}
+                      />
+                      <div className="min-w-0">
+                        <span className="font-bold text-[10px] text-stone-900 dark:text-amber-100 block truncate">
+                          {daemonDongle
+                            ? username.trim() && daemonDongle.matchedForUser
+                              ? 'DRIVE USB TERDETEKSI & SIAP'
+                              : 'DRIVE USB TERDETEKSI'
+                            : 'STATUS PERANGKAT KERAS // USB DONGLE'}
+                        </span>
+                        <span className="text-[10px] text-stone-700 dark:text-stone-300 font-medium block truncate">
+                          {daemonDongle
+                            ? `Drive: ${daemonDongle.driveLetter || daemonDongle.drive || 'USB'} • ${daemonDongle.fileName || 'Ed25519 Ready'}`
+                            : 'Colokkan flashdisk berisi file kunci dongle'}
                         </span>
                       </div>
                     </div>
                     {daemonDongle && (
-                      <span className="rubber-stamp text-[9px] text-emerald-900 dark:text-emerald-400 border-emerald-900 dark:border-emerald-400 font-black">
-                        MATCHED
+                      <span className="rubber-stamp text-[9px] text-emerald-900 dark:text-emerald-400 border-emerald-900 dark:border-emerald-400 font-black flex-shrink-0 ml-2">
+                        {username.trim() && daemonDongle.matchedForUser ? 'MATCHED' : 'DETECTED'}
                       </span>
                     )}
                   </div>
@@ -783,7 +1137,7 @@ export default function LoginPage({ onLoginSuccess }) {
               </div>
 
               {/* Bottom Noir Stamp Footnote */}
-              <div className="pt-3 border-t border-stone-400/40 dark:border-stone-700 flex items-center justify-between text-[10px] font-mono font-bold text-stone-700 dark:text-stone-300">
+              <div className="pt-2.5 border-t border-stone-400/40 dark:border-stone-700 flex items-center justify-between text-[10px] font-mono font-bold text-stone-700 dark:text-stone-300">
                 <span>WARANT: INVESTIGATION ARCHIVE</span>
                 <span>PROTECTED BY ED25519 & CHACHA20</span>
               </div>
@@ -794,8 +1148,8 @@ export default function LoginPage({ onLoginSuccess }) {
         </div>
 
         <div className="mt-2 text-center">
-          <p className="text-[10px] font-mono text-stone-800 dark:text-stone-400 font-bold tracking-wider uppercase">
-            Pikatan v1.0 &middot; Pengamanan Data Liputan &middot; UPN "Veteran" Yogyakarta &middot; Berkas Rahasia
+          <p className="text-[10px] font-mono text-stone-900 dark:text-stone-300 font-bold tracking-wider uppercase">
+            Pikatan v1.0 &middot; Pengamanan Data Liputan &middot; UPN &quot;Veteran&quot; Yogyakarta &middot; Berkas Rahasia
           </p>
         </div>
 

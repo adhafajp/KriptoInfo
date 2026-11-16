@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Copy, Check, Hash, Cpu, Sparkles, ArrowRightLeft, FileCode, ShieldAlert } from 'lucide-react';
+import { X, Copy, Check, Hash, Cpu, Sparkles, ArrowRightLeft, ShieldAlert } from 'lucide-react';
 
 function md5(string) {
   function rotateLeft(lValue, iShiftBits) {
@@ -199,13 +199,11 @@ export default function CryptoToolModal({ isOpen, onClose }) {
             sha512: sha512Res,
           });
 
-          // Avalanche test: flip 1 bit in first char
           if (inputText.length > 0) {
             const flippedFirstChar = String.fromCharCode(inputText.charCodeAt(0) ^ 1);
             const flippedInput = flippedFirstChar + inputText.slice(1);
             const flippedSha256 = await digestSubtle('SHA-256', flippedInput);
 
-            // Count bit difference
             let bitDiff = 0;
             for (let i = 0; i < sha256Res.length; i += 2) {
               const b1 = parseInt(sha256Res.substr(i, 2), 16);
@@ -216,7 +214,6 @@ export default function CryptoToolModal({ isOpen, onClose }) {
                 xor >>= 1;
               }
             }
-            // 256 bits total
             setAvalanchePercent(((bitDiff / 256) * 100).toFixed(1));
           } else {
             setAvalanchePercent(0);
@@ -233,22 +230,18 @@ export default function CryptoToolModal({ isOpen, onClose }) {
     };
   }, [inputText, isOpen]);
 
-  // Converter effect
   useEffect(() => {
     try {
       const utf8Bytes = new TextEncoder().encode(convInput);
-      // Base64
       let binStr = '';
       utf8Bytes.forEach((b) => (binStr += String.fromCharCode(b)));
       setConvBase64(btoa(binStr));
 
-      // Hex
       const hexStr = Array.from(utf8Bytes)
         .map((b) => b.toString(16).padStart(2, '0'))
         .join(' ');
       setConvHex(hexStr);
 
-      // Binary
       const binDisplay = Array.from(utf8Bytes)
         .slice(0, 8)
         .map((b) => b.toString(2).padStart(8, '0'))
@@ -271,68 +264,68 @@ export default function CryptoToolModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-3xl bg-dark-950 border border-vault-500/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-3xl dossier-paper rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-4 bg-dark-900/80 border-b border-dark-800 flex items-center justify-between">
+        <div className="px-6 py-4 dossier-panel border-b border-stone-400/50 dark:border-stone-700 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-vault-500/10 border border-vault-500/20 text-vault-400">
+            <div className="p-2 rounded dossier-surface text-red-700 dark:text-amber-400">
               <Cpu className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                Cryptographic Lab & Hasher
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-vault-500/10 text-vault-400 border border-vault-500/20">
+              <h3 className="text-base font-serif font-black text-stone-900 dark:text-amber-100 flex items-center gap-2">
+                <span>Cryptographic Lab &amp; Hasher</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-red-800 text-amber-50 font-bold">
                   REALTIME TOOL
                 </span>
               </h3>
-              <p className="text-xs text-dark-400">
+              <p className="text-xs font-mono text-stone-700 dark:text-stone-300">
                 Inspeksi hash multi-algoritma, evaluasi avalanche effect, dan konversi data kripto.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-dark-400 hover:text-white hover:bg-dark-800 transition-colors"
+            className="p-1.5 rounded text-stone-700 dark:text-stone-300 hover:bg-stone-300/60 dark:hover:bg-stone-800 transition-colors"
+            title="Tutup"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Sub-tab selection */}
-        <div className="flex border-b border-dark-800 bg-dark-900/40 px-6 pt-2 gap-2">
+        <div className="flex border-b border-stone-400/50 dark:border-stone-700 dossier-panel px-6 pt-2 gap-2">
           <button
             onClick={() => setActiveSubTab('hasher')}
-            className={`px-4 py-2 text-xs font-medium border-b-2 transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 text-xs font-mono font-bold border-b-2 transition-all flex items-center gap-2 ${
               activeSubTab === 'hasher'
-                ? 'border-vault-400 text-vault-300'
-                : 'border-transparent text-dark-400 hover:text-dark-200'
+                ? 'border-red-700 dark:border-amber-400 text-red-800 dark:text-amber-300'
+                : 'border-transparent text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white'
             }`}
           >
             <Hash className="w-3.5 h-3.5" />
-            Multi-Hash & Avalanche Inspector
+            <span>Multi-Hash &amp; Avalanche Inspector</span>
           </button>
           <button
             onClick={() => setActiveSubTab('converter')}
-            className={`px-4 py-2 text-xs font-medium border-b-2 transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 text-xs font-mono font-bold border-b-2 transition-all flex items-center gap-2 ${
               activeSubTab === 'converter'
-                ? 'border-vault-400 text-vault-300'
-                : 'border-transparent text-dark-400 hover:text-dark-200'
+                ? 'border-red-700 dark:border-amber-400 text-red-800 dark:text-amber-300'
+                : 'border-transparent text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white'
             }`}
           >
             <ArrowRightLeft className="w-3.5 h-3.5" />
-            Hex, Base64 & Binary Converter
+            <span>Hex, Base64 &amp; Binary Converter</span>
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-6">
+        <div className="p-6 overflow-y-auto space-y-5">
           {activeSubTab === 'hasher' ? (
             <>
-              {/* Input Box */}
               <div>
-                <label className="block text-xs font-medium text-dark-300 mb-1.5 flex items-center justify-between">
+                <label className="text-xs font-mono font-bold text-stone-900 dark:text-amber-200 mb-1.5 flex items-center justify-between">
                   <span>Input String / Preimage</span>
-                  <span className="text-[10px] text-dark-500 font-mono">
+                  <span className="text-[10px] text-stone-700 dark:text-stone-300">
                     {inputText.length} karakter ({new TextEncoder().encode(inputText).length} bytes)
                   </span>
                 </label>
@@ -340,24 +333,24 @@ export default function CryptoToolModal({ isOpen, onClose }) {
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   rows={2}
-                  className="w-full bg-dark-900 border border-dark-700 rounded-xl px-3.5 py-2.5 text-xs text-dark-100 font-mono focus:border-vault-500 focus:outline-none transition-colors"
+                  className="w-full dossier-input rounded px-3.5 py-2.5 text-xs font-mono"
                   placeholder="Ketik teks apa saja untuk menghitung hash serentak..."
                 />
               </div>
 
               {/* Avalanche Gauge */}
-              <div className="p-3.5 rounded-xl bg-dark-900/60 border border-dark-800/80 flex items-center justify-between">
+              <div className="p-3.5 rounded dossier-panel flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5">
-                  <Sparkles className="w-4 h-4 text-cyber-400" />
-                  <div>
-                    <span className="text-xs font-semibold text-white">Avalanche Effect Score (SHA-256):</span>
-                    <span className="text-xs text-dark-400 ml-1.5">
+                  <Sparkles className="w-4 h-4 text-red-700 dark:text-amber-400 flex-shrink-0" />
+                  <div className="text-xs font-mono">
+                    <span className="font-bold text-stone-900 dark:text-amber-100">Avalanche Effect Score (SHA-256):</span>
+                    <span className="text-stone-800 dark:text-stone-200 ml-1.5">
                       Perubahan 1 bit input membalik{' '}
-                      <span className="text-cyber-300 font-bold font-mono">{avalanchePercent}%</span> bit output hash
+                      <span className="text-emerald-800 dark:text-emerald-400 font-black">{avalanchePercent}%</span> bit output hash
                     </span>
                   </div>
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyber-500/10 text-cyber-300 border border-cyber-500/20">
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded dossier-surface text-stone-900 dark:text-amber-300">
                   Ideal: ~50%
                 </span>
               </div>
@@ -365,142 +358,144 @@ export default function CryptoToolModal({ isOpen, onClose }) {
               {/* Hashes Grid */}
               <div className="space-y-3">
                 {/* MD5 */}
-                <div className="p-3 rounded-xl bg-dark-900 border border-dark-800">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-bold text-red-400">MD5</span>
-                      <span className="text-[10px] text-dark-500 font-mono">128-bit (Legacy / Broken)</span>
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-red-950/60 text-red-400 border border-red-900/40 flex items-center gap-1">
+                <div className="p-3 rounded dossier-panel">
+                  <div className="flex items-center justify-between mb-1.5 gap-2">
+                    <div className="flex items-center gap-2 flex-wrap font-mono">
+                      <span className="text-xs font-black text-red-800 dark:text-red-400">MD5</span>
+                      <span className="text-[10px] text-stone-700 dark:text-stone-300 font-bold">128-bit (Legacy / Broken)</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-900/15 dark:bg-red-950/60 text-red-900 dark:text-red-300 border border-red-700/40 flex items-center gap-1 font-bold">
                         <ShieldAlert className="w-2.5 h-2.5" /> Collision Vulnerable
                       </span>
                     </div>
                     <button
                       onClick={() => copyToClipboard('md5', hashes.md5)}
-                      className="text-dark-400 hover:text-vault-400 transition-colors p-1"
+                      className="text-stone-700 dark:text-stone-300 hover:text-red-800 dark:hover:text-amber-300 transition-colors p-1"
                     >
-                      {copiedKey === 'md5' ? <Check className="w-3.5 h-3.5 text-vault-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedKey === 'md5' ? <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   </div>
-                  <div className="font-mono text-[11px] text-dark-200 break-all select-all bg-black/40 p-2 rounded-lg border border-dark-800">
+                  <div className="font-mono text-[11px] font-bold break-all select-all dossier-input p-2 rounded">
                     {hashes.md5 || '...'}
                   </div>
                 </div>
 
                 {/* SHA-1 */}
-                <div className="p-3 rounded-xl bg-dark-900 border border-dark-800">
+                <div className="p-3 rounded dossier-panel">
                   <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-bold text-amber-400">SHA-1</span>
-                      <span className="text-[10px] text-dark-500 font-mono">160-bit (Deprecated)</span>
+                    <div className="flex items-center gap-2 font-mono">
+                      <span className="text-xs font-black text-amber-800 dark:text-amber-400">SHA-1</span>
+                      <span className="text-[10px] text-stone-700 dark:text-stone-300 font-bold">160-bit (Deprecated)</span>
                     </div>
                     <button
                       onClick={() => copyToClipboard('sha1', hashes.sha1)}
-                      className="text-dark-400 hover:text-vault-400 transition-colors p-1"
+                      className="text-stone-700 dark:text-stone-300 hover:text-red-800 dark:hover:text-amber-300 transition-colors p-1"
                     >
-                      {copiedKey === 'sha1' ? <Check className="w-3.5 h-3.5 text-vault-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedKey === 'sha1' ? <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   </div>
-                  <div className="font-mono text-[11px] text-dark-200 break-all select-all bg-black/40 p-2 rounded-lg border border-dark-800">
+                  <div className="font-mono text-[11px] font-bold break-all select-all dossier-input p-2 rounded">
                     {hashes.sha1 || '...'}
                   </div>
                 </div>
 
                 {/* SHA-256 */}
-                <div className="p-3 rounded-xl bg-dark-900 border border-vault-500/30 bg-vault-500/[0.02]">
+                <div className="p-3 rounded dossier-panel border-2 border-emerald-700/60 dark:border-emerald-500/60">
                   <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-bold text-vault-300">SHA-256</span>
-                      <span className="text-[10px] text-vault-400 font-mono">256-bit (Standard KryptoInfo Ledger)</span>
+                    <div className="flex items-center gap-2 font-mono">
+                      <span className="text-xs font-black text-emerald-800 dark:text-emerald-400">SHA-256</span>
+                      <span className="text-[10px] text-emerald-900 dark:text-emerald-300 font-bold">
+                        256-bit (Standard KryptoInfo Ledger)
+                      </span>
                     </div>
                     <button
                       onClick={() => copyToClipboard('sha256', hashes.sha256)}
-                      className="text-dark-400 hover:text-vault-400 transition-colors p-1"
+                      className="text-stone-700 dark:text-stone-300 hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors p-1"
                     >
-                      {copiedKey === 'sha256' ? <Check className="w-3.5 h-3.5 text-vault-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedKey === 'sha256' ? <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   </div>
-                  <div className="font-mono text-[11px] text-vault-200 break-all select-all bg-black/50 p-2 rounded-lg border border-vault-500/20">
+                  <div className="font-mono text-[11px] font-bold break-all select-all dossier-input p-2 rounded">
                     {hashes.sha256 || '...'}
                   </div>
                 </div>
 
                 {/* SHA-512 */}
-                <div className="p-3 rounded-xl bg-dark-900 border border-dark-800">
+                <div className="p-3 rounded dossier-panel">
                   <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-bold text-cyber-300">SHA-512</span>
-                      <span className="text-[10px] text-dark-500 font-mono">512-bit (Military / Quantum-Resistant candidate)</span>
+                    <div className="flex items-center gap-2 font-mono">
+                      <span className="text-xs font-black text-stone-900 dark:text-amber-200">SHA-512</span>
+                      <span className="text-[10px] text-stone-700 dark:text-stone-300 font-bold">
+                        512-bit (High-Entropy Digest)
+                      </span>
                     </div>
                     <button
                       onClick={() => copyToClipboard('sha512', hashes.sha512)}
-                      className="text-dark-400 hover:text-vault-400 transition-colors p-1"
+                      className="text-stone-700 dark:text-stone-300 hover:text-red-800 dark:hover:text-amber-300 transition-colors p-1"
                     >
-                      {copiedKey === 'sha512' ? <Check className="w-3.5 h-3.5 text-vault-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedKey === 'sha512' ? <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   </div>
-                  <div className="font-mono text-[10px] text-dark-200 break-all select-all bg-black/40 p-2 rounded-lg border border-dark-800 max-h-20 overflow-y-auto">
+                  <div className="font-mono text-[10px] font-bold break-all select-all dossier-input p-2 rounded max-h-20 overflow-y-auto">
                     {hashes.sha512 || '...'}
                   </div>
                 </div>
               </div>
             </>
           ) : (
-            /* Converter Tab */
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-dark-300 mb-1.5">Input Text (UTF-8)</label>
+                <label className="block text-xs font-mono font-bold text-stone-900 dark:text-amber-200 mb-1.5">
+                  Input Text (UTF-8)
+                </label>
                 <input
                   type="text"
                   value={convInput}
                   onChange={(e) => setConvInput(e.target.value)}
-                  className="w-full bg-dark-900 border border-dark-700 rounded-xl px-3.5 py-2.5 text-xs text-dark-100 font-mono focus:border-vault-500 focus:outline-none"
+                  className="w-full dossier-input rounded px-3.5 py-2.5 text-xs font-mono font-bold"
                 />
               </div>
 
-              {/* Base64 Output */}
-              <div className="p-3 rounded-xl bg-dark-900 border border-dark-800">
+              <div className="p-3 rounded dossier-panel">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-mono font-bold text-dark-300">Base64 Representation</span>
+                  <span className="text-xs font-mono font-bold text-stone-900 dark:text-amber-200">Base64 Representation</span>
                   <button
                     onClick={() => copyToClipboard('b64', convBase64)}
-                    className="text-dark-400 hover:text-vault-400 transition-colors p-1"
+                    className="text-stone-700 dark:text-stone-300 hover:text-red-800 dark:hover:text-amber-300 p-1"
                   >
-                    {copiedKey === 'b64' ? <Check className="w-3.5 h-3.5 text-vault-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedKey === 'b64' ? <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-                <div className="font-mono text-xs text-dark-200 break-all select-all bg-black/40 p-2 rounded-lg">
+                <div className="font-mono text-xs font-bold break-all select-all dossier-input p-2 rounded">
                   {convBase64}
                 </div>
               </div>
 
-              {/* Hex Output */}
-              <div className="p-3 rounded-xl bg-dark-900 border border-dark-800">
+              <div className="p-3 rounded dossier-panel">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-mono font-bold text-dark-300">Hexadecimal Bytes</span>
+                  <span className="text-xs font-mono font-bold text-stone-900 dark:text-amber-200">Hexadecimal Bytes</span>
                   <button
                     onClick={() => copyToClipboard('hex', convHex)}
-                    className="text-dark-400 hover:text-vault-400 transition-colors p-1"
+                    className="text-stone-700 dark:text-stone-300 hover:text-red-800 dark:hover:text-amber-300 p-1"
                   >
-                    {copiedKey === 'hex' ? <Check className="w-3.5 h-3.5 text-vault-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedKey === 'hex' ? <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-                <div className="font-mono text-xs text-dark-200 break-all select-all bg-black/40 p-2 rounded-lg">
+                <div className="font-mono text-xs font-bold break-all select-all dossier-input p-2 rounded">
                   {convHex}
                 </div>
               </div>
 
-              {/* Binary Sample */}
-              <div className="p-3 rounded-xl bg-dark-900 border border-dark-800">
+              <div className="p-3 rounded dossier-panel">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-mono font-bold text-dark-300">Binary (First 8 Bytes)</span>
+                  <span className="text-xs font-mono font-bold text-stone-900 dark:text-amber-200">Binary (First 8 Bytes)</span>
                   <button
                     onClick={() => copyToClipboard('bin', convBinary)}
-                    className="text-dark-400 hover:text-vault-400 transition-colors p-1"
+                    className="text-stone-700 dark:text-stone-300 hover:text-red-800 dark:hover:text-amber-300 p-1"
                   >
-                    {copiedKey === 'bin' ? <Check className="w-3.5 h-3.5 text-vault-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedKey === 'bin' ? <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-                <div className="font-mono text-xs text-dark-200 break-all select-all bg-black/40 p-2 rounded-lg">
+                <div className="font-mono text-xs font-bold break-all select-all dossier-input p-2 rounded">
                   {convBinary}
                 </div>
               </div>
@@ -509,11 +504,11 @@ export default function CryptoToolModal({ isOpen, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 bg-dark-900/60 border-t border-dark-800 text-[11px] text-dark-500 flex justify-between items-center">
-          <span className="font-mono">Pikatan Cryptographic Engine Suite</span>
+        <div className="px-6 py-3 dossier-panel border-t border-stone-400/50 dark:border-stone-700 text-[11px] font-mono text-stone-800 dark:text-stone-200 flex justify-between items-center">
+          <span className="font-bold">Pikatan Cryptographic Engine Suite</span>
           <button
             onClick={onClose}
-            className="px-3 py-1 bg-dark-800 hover:bg-dark-700 text-dark-200 rounded-lg text-xs font-medium transition-colors"
+            className="px-3.5 py-1 bg-red-800 hover:bg-red-900 text-amber-50 rounded text-xs font-bold transition-colors"
           >
             Tutup
           </button>

@@ -88,3 +88,54 @@ test('saveDongleToFolder membuat folder KryptoInfoDongle dan menyimpan file dong
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('menemukan file dongle di folder KriptoInfoDongle (spelling i) dan file kriptoinfo-dongle-*.json', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'kriptoinfo-usb-i-'));
+  try {
+    const folder = path.join(root, 'KriptoInfoDongle');
+    await mkdir(folder);
+    await writeDongle(path.join(folder, 'kriptoinfo-dongle-budi.json'), 'budi');
+
+    const dongles = await discoverDongles({ roots: [root] });
+    assert.equal(dongles.length, 1);
+    assert.equal(dongles[0].username, 'budi');
+    assert.equal(dongles[0].fileName, 'kriptoinfo-dongle-budi.json');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('saveDongleToFolder membuat folder KriptoInfoDongle dan menyimpan file dongle valid', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'kriptoinfo-usb-save-i-'));
+  try {
+    const targetFolder = path.join(root, 'KriptoInfoDongle');
+    const pair = makePair();
+    const result = await saveDongleToFolder(targetFolder, 'adhafa', pair.privateKeyPkcs8);
+
+    assert.equal(result.fileName, 'kryptoinfo-dongle-adhafa.json');
+    assert.equal(result.filePath, path.join(targetFolder, 'kryptoinfo-dongle-adhafa.json'));
+    assert.equal(result.folder, 'KriptoInfoDongle');
+
+    const discovered = await discoverDongles({ roots: [root] });
+    assert.equal(discovered.length, 1);
+    assert.equal(discovered[0].username, 'adhafa');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('mengekstrak username dari nama file ketika field username di JSON bernilai generik Dongle/user', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'kryptoinfo-usb-generic-'));
+  try {
+    const folder = path.join(root, 'KriptoInfoDongle');
+    await mkdir(folder);
+    await writeDongle(path.join(folder, 'kryptoinfo-dongle-adhafa-02.json'), 'Dongle');
+    await writeDongle(path.join(folder, 'kriptoinfo-dongle-mirwan24.json'), 'user');
+
+    const dongles = await discoverDongles({ roots: [root] });
+    assert.equal(dongles.length, 2);
+    assert.deepEqual(dongles.map(item => item.username).sort(), ['adhafa-02', 'mirwan24']);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

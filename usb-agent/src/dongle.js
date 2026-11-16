@@ -12,11 +12,18 @@ function makeError(message, code) {
 }
 
 function usernameFromFile(fileName, dongle) {
-  if (typeof dongle.username === 'string' && dongle.username.trim()) {
-    return dongle.username.trim().slice(0, 80);
+  const match = fileName.match(/^kr[iy]ptoinfo-dongle-(.+)\.json$/i);
+  const fromFile = match ? match[1].trim().slice(0, 80) : '';
+  const rawUser = typeof dongle.username === 'string' ? dongle.username.trim() : '';
+  const isGeneric = !rawUser || ['dongle', 'user'].includes(rawUser.toLowerCase());
+
+  if (!isGeneric) {
+    return rawUser.slice(0, 80);
   }
-  const match = fileName.match(/^kryptoinfo-dongle-(.+)\.json$/i);
-  return match ? match[1].slice(0, 80) : 'Dongle';
+  if (fromFile) {
+    return fromFile;
+  }
+  return rawUser ? rawUser.slice(0, 80) : 'Dongle';
 }
 
 async function readDongle(filePath) {
@@ -89,11 +96,36 @@ function uniquePaths(items) {
  * containing an Ed25519 PKCS#8 privateKeyPkcs8 is treated as a dongle.
  * The function accepts explicit roots to make testing independent of Windows.
  */
-export async function discoverDongles({ roots = [], searchFolders = ['KryptoInfoDongle', '.kryptoinfo/dongles', 'KryptoInfo/dongles'] } = {}) {
+export async function discoverDongles({
+  roots = [],
+  searchFolders = [
+    'KriptoInfoDongle',
+    'KryptoInfoDongle',
+    'kriptoinfodongle',
+    'kryptoinfodongle',
+    '.kryptoinfo/dongles',
+    'KriptoInfo/dongles',
+    'KryptoInfo/dongles',
+    '.kryptoinfo'
+  ]
+} = {}) {
   const candidates = [];
 
   for (const root of uniquePaths(roots)) {
     const directories = [root, ...searchFolders.map(folder => path.join(root, folder))];
+
+    // Deteksi otomatis folder apapun di dalam root yang mencocokkan pattern kryptoinfo / kriptoinfo
+    try {
+      const topEntries = await readdir(root, { withFileTypes: true });
+      for (const entry of topEntries) {
+        if (entry.isDirectory() && /^kr[iy]ptoinfo.*dongle$/i.test(entry.name)) {
+          directories.push(path.join(root, entry.name));
+        }
+      }
+    } catch {
+      // Root tidak dapat di-readdir
+    }
+
     for (const directory of uniquePaths(directories)) {
       let entries;
       try {
@@ -163,5 +195,5 @@ export async function saveDongleToFolder(targetDir, username, privateKeyPkcs8) {
     privateKeyPkcs8
   }, null, 2);
   await writeFile(filePath, content, 'utf8');
-  return { filePath, fileName };
+  return { filePath, fileName, folder: path.basename(targetDir) };
 }

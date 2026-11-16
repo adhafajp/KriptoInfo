@@ -1,6 +1,32 @@
+import { randomBytes } from 'node:crypto';
 import multer from 'multer';
 import { PNG } from 'pngjs';
-import { aesEncrypt, aesDecrypt } from '../crypto/crypto.js';
+import {
+  aesEncrypt,
+  aesDecrypt,
+  deriveSubkey,
+  getEncryptionKey,
+  sha256,
+  vigenereEncrypt,
+  vigenereDecrypt,
+  xorKeystreamTransform
+} from '../crypto/crypto.js';
+
+const STEGO_LAYERS = [
+  'Vigenère Master Substitution',
+  'HKDF-SHA512 Key Derivation',
+  'SHAKE-256 Stream Whitening',
+  'AES-256-GCM AEAD + PNG LSB'
+];
+
+function deriveMasterVigenereSeed() {
+  const digest = sha256(getEncryptionKey());
+  // Ubah setiap karakter hex (0-f) menjadi huruf A-P untuk seed Vigenere deterministik
+  return [...digest]
+    .slice(0, 32)
+    .map(ch => String.fromCharCode(65 + parseInt(ch, 16)))
+    .join('');
+}
 
 export const uploadPng = multer({
   storage: multer.memoryStorage(),
@@ -64,8 +90,27 @@ export function embedMessage(req, res, next) {
       return res.status(400).json({ success: false, message: 'File PNG dan message wajib diisi.' });
     }
     const png = PNG.sync.read(req.file.buffer);
-    const encrypted = aesEncrypt(Buffer.from(message, 'utf8'));
-    const payload = Buffer.from(JSON.stringify(encrypted), 'utf8');
+    const iv = randomBytes(12);
+
+    // Lapis 1: Vigenere Master Key Substitution (zero byte overhead)
+    const layer1 = vigenereEncrypt(message, deriveMasterVigenereSeed());
+
+    // Lapis 2: HKDF-SHA512 + SHAKE-256 Stream Whitening (zero byte overhead)
+    const streamKey = deriveSubkey(iv, 'KryptoInfo-Stego-Stream-v2', 32);
+    const aesKey = deriveSubkey(iv, 'KryptoInfo-Stego-AES-v2', 32);
+    const layer2 = xorKeystreamTransform(Buffer.from(layer1, 'utf8'), streamKey, iv);
+
+    // Lapis 3: AES-256-GCM AEAD dengan payload ultra-ringkas
+    const encrypted = aesEncrypt(layer2, aesKey, iv);
+    const compactPayload = {
+      v: 2,
+      iv: encrypted.iv,
+      authTag: encrypted.authTag,
+      ciphertext: encrypted.ciphertext
+    };
+
+    // Lapis 4: LSB 1-Bit Red-Channel Pixel Encoding
+    const payload = Buffer.from(JSON.stringify(compactPayload), 'utf8');
     embedBytesInPng(png, payload);
     const output = PNG.sync.write(png);
     res.set('Content-Type', 'image/png');
@@ -81,8 +126,28 @@ export function extractMessage(req, res, next) {
     if (!req.file) return res.status(400).json({ success: false, message: 'File PNG wajib diunggah.' });
     const png = PNG.sync.read(req.file.buffer);
     const payload = JSON.parse(extractBytesFromPng(png).toString('utf8'));
-    const text = aesDecrypt(payload).toString('utf8');
-    return res.json({ success: true, data: { text } });
+
+    let text;
+    if (payload.v === 2) {
+      const ivBuf = Buffer.from(payload.iv, 'base64');
+      const streamKey = deriveSubkey(ivBuf, 'KryptoInfo-Stego-Stream-v2', 32);
+      const aesKey = deriveSubkey(ivBuf, 'KryptoInfo-Stego-AES-v2', 32);
+      const layer2 = aesDecrypt(payload, aesKey);
+      const layer1 = xorKeystreamTransform(layer2, streamKey, ivBuf).toString('utf8');
+      text = vigenereDecrypt(layer1, deriveMasterVigenereSeed());
+    } else {
+      text = aesDecrypt(payload).toString('utf8');
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        text,
+        algorithm: 'Vigenere + HKDF-SHA512 + SHAKE-256 + AES-256-GCM + LSB',
+        layers: STEGO_LAYERS,
+        sha256: sha256(Buffer.from(text, 'utf8'))
+      }
+    });
   } catch (error) {
     return next(error);
   }

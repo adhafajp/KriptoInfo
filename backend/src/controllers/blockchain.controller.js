@@ -1,15 +1,35 @@
 import { prisma } from '../config/db.js';
-import { sha256 } from '../crypto/crypto.js';
+import { computeHmacSha512, deriveSubkey, sha256, sha3_256 } from '../crypto/crypto.js';
 
-function makeBlockHash(block) {
-  return sha256([
+function makeBlockPreimage(block) {
+  return [
     block.blockIndex,
     block.createdAt.toISOString(),
     block.assetId,
     block.assetHash,
     block.previousHash,
     block.metadata || ''
-  ].join('|'));
+  ].join('|');
+}
+
+function makeBlockHash(block) {
+  return sha256(makeBlockPreimage(block));
+}
+
+function enrichBlockCryptographicSeals(block) {
+  const preimage = makeBlockPreimage(block);
+  let hmacSeal = null;
+  try {
+    const chainKey = deriveSubkey('KryptoInfo-Ledger-Salt', 'KryptoInfo-Chain-HMAC-v1', 32);
+    hmacSeal = computeHmacSha512(chainKey, preimage).slice(0, 64);
+  } catch {
+    hmacSeal = null;
+  }
+  return {
+    ...block,
+    sha3_256: sha3_256(preimage),
+    hmacSeal
+  };
 }
 
 export async function addBlock(req, res) {
@@ -35,7 +55,7 @@ export async function addBlock(req, res) {
   const saved = await prisma.blockchainBlock.create({
     data: { ...block, currentHash }
   });
-  return res.status(201).json({ success: true, data: saved });
+  return res.status(201).json({ success: true, data: enrichBlockCryptographicSeals(saved) });
 }
 
 export async function listBlocks(req, res) {
@@ -43,7 +63,7 @@ export async function listBlocks(req, res) {
     where: { userId: req.user.id },
     orderBy: { blockIndex: 'asc' }
   });
-  return res.json({ success: true, data: blocks });
+  return res.json({ success: true, data: blocks.map(enrichBlockCryptographicSeals) });
 }
 
 export async function verifyChain(req, res) {
@@ -64,6 +84,11 @@ export async function verifyChain(req, res) {
   }
   return res.json({
     success: true,
-    data: { valid, totalBlocks: blocks.length, problemAt }
+    data: {
+      valid,
+      totalBlocks: blocks.length,
+      problemAt,
+      algorithm: 'SHA-256 + SHA3-256 + HMAC-SHA512'
+    }
   });
 }

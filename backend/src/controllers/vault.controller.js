@@ -90,7 +90,15 @@ export async function uploadVaultFile(req, res) {
 
   await prisma.vaultItem.update({
     where: { id: item.id },
-    data: { encryptedData: JSON.stringify({ storagePath: item.id + '.enc', algorithm: encrypted.algorithm }) }
+    data: {
+      encryptedData: JSON.stringify({
+        storagePath: item.id + '.enc',
+        algorithm: encrypted.algorithm,
+        layers: encrypted.layers,
+        sha256: encrypted.sha256,
+        sha3_256: encrypted.sha3_256
+      })
+    }
   });
 
   return res.status(201).json({ success: true, data: item });

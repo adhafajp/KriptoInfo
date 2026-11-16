@@ -1,7 +1,14 @@
 import 'dotenv/config';
 import http from 'node:http';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { findAvailableDongles, getDongleRoots, getWindowsRemovableDrives, publicDongleInfo } from './discovery.js';
+import {
+  findAvailableDongles,
+  getDongleRoots,
+  getDrivesWithDongleFolder,
+  getWindowsRemovableDrives,
+  publicDongleInfo
+} from './discovery.js';
 import { saveDongleToFolder, signDongleChallenge } from './dongle.js';
 
 const HOST = '127.0.0.1';
@@ -80,6 +87,39 @@ function allowSigning(req, res) {
   return true;
 }
 
+function normalizeId(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function findMatchingDongles(dongles, rawUsername) {
+  const reqUser = String(rawUsername || '').trim().toLowerCase();
+  if (!reqUser) return [];
+
+  const exactMatches = dongles.filter(d =>
+    (d.username && d.username.toLowerCase() === reqUser) ||
+    (d.fileName && (
+      d.fileName.toLowerCase() === `kryptoinfo-dongle-${reqUser}.json` ||
+      d.fileName.toLowerCase() === `kriptoinfo-dongle-${reqUser}.json`
+    ))
+  );
+  if (exactMatches.length > 0) return exactMatches;
+
+  const normalizedReq = normalizeId(reqUser);
+  if (!normalizedReq) return [];
+
+  return dongles.filter(d => {
+    const normUser = normalizeId(d.username);
+    const normFile = normalizeId(
+      String(d.fileName || '').replace(/^kr[iy]ptoinfo-dongle-|\.json$/gi, '')
+    );
+    return (
+      normUser === normalizedReq ||
+      normFile === normalizedReq ||
+      (normalizedReq.length >= 3 && (normUser.includes(normalizedReq) || normFile.includes(normalizedReq)))
+    );
+  });
+}
+
 function getErrorStatus(error) {
   if (error.code === 'INVALID_CHALLENGE') return 400;
   if (error.code === 'DONGLE_NOT_FOUND') return 409;
@@ -107,31 +147,50 @@ const server = http.createServer(async (req, res) => {
     try {
       const dongles = await findAvailableDongles();
       const publicDongles = dongles.map(publicDongleInfo);
-      const reqUser = url.searchParams.get('username')?.trim().toLowerCase();
-      let matched = publicDongles;
+      const reqUser = url.searchParams.get('username')?.trim() || '';
+
+      let orderedDongles = publicDongles;
+      let selectedDongle = publicDongles[0] || null;
+      let matchedForUser = publicDongles.length > 0;
+
       if (reqUser) {
-        matched = publicDongles.filter(d =>
-          (d.username && d.username.toLowerCase() === reqUser) ||
-          (d.fileName && d.fileName.toLowerCase() === `kryptoinfo-dongle-${reqUser}.json`)
-        );
+        const matched = findMatchingDongles(publicDongles, reqUser);
+        if (matched.length > 0) {
+          const matchedIds = new Set(matched.map(d => d.id));
+          orderedDongles = [
+            ...matched,
+            ...publicDongles.filter(d => !matchedIds.has(d.id))
+          ];
+          selectedDongle = matched[0];
+          matchedForUser = true;
+        } else {
+          selectedDongle = publicDongles[0] || null;
+          matchedForUser = false;
+        }
       }
+
+      const detected = publicDongles.length > 0;
       return sendJson(res, 200, {
         success: true,
-        detected: matched.length > 0,
-        dongleDetected: matched.length > 0,
-        count: matched.length,
-        dongles: matched,
-        fileName: matched[0]?.fileName || null,
-        dongle: matched[0] || null,
-        message: matched.length
-          ? `${matched.length} dongle valid ditemukan.`
-          : (reqUser ? `Dongle untuk ${reqUser} tidak ditemukan di flashdisk.` : 'Tidak ada dongle valid pada drive removable yang terdeteksi.')
+        detected,
+        dongleDetected: detected,
+        matchedForUser,
+        count: publicDongles.length,
+        dongles: orderedDongles,
+        fileName: selectedDongle?.fileName || null,
+        dongle: selectedDongle,
+        message: detected
+          ? (reqUser && !matchedForUser
+            ? `${publicDongles.length} dongle terdeteksi di flashdisk (belum ada yang cocok spesifik untuk ${reqUser}).`
+            : `${publicDongles.length} dongle valid ditemukan.`)
+          : 'Tidak ada dongle valid pada drive removable yang terdeteksi.'
       });
     } catch (error) {
       return sendJson(res, 503, {
         success: false,
         detected: false,
         dongleDetected: false,
+        matchedForUser: false,
         count: 0,
         dongles: [],
         message: error.message
@@ -156,21 +215,18 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 409, { success: false, message: 'Tidak ada dongle terpasang atau file dongle tidak valid.' });
       }
 
-      let selected;
+      let selected = null;
       if (body.dongleId) {
-        selected = dongles.find(item => item.id === body.dongleId);
-        if (!selected) {
-          return sendJson(res, 409, { success: false, message: 'Dongle pilihan tidak ditemukan. Periksa koneksi flashdisk dan muat ulang daftar dongle.' });
+        selected = dongles.find(item => item.id === body.dongleId) || null;
+      }
+      if (!selected && body.username) {
+        const matched = findMatchingDongles(dongles, body.username);
+        if (matched.length > 0) {
+          selected = matched[0];
         }
-      } else if (dongles.length === 1) {
+      }
+      if (!selected) {
         selected = dongles[0];
-      } else {
-        return sendJson(res, 409, {
-          success: false,
-          code: 'DONGLE_SELECTION_REQUIRED',
-          message: 'Lebih dari satu dongle ditemukan. Pilih dongleId yang akan digunakan.',
-          dongles: dongles.map(publicDongleInfo)
-        });
       }
 
       const signature = await signDongleChallenge(selected.filePath, body.challengeText);
@@ -206,29 +262,55 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, { success: false, message: 'privateKeyPkcs8 wajib diisi.' });
       }
 
-      let roots = await getDongleRoots();
-      if (roots.length === 0) {
-        const remDrives = await getWindowsRemovableDrives();
-        if (remDrives.length > 0) roots = remDrives;
+      // 1. Cek drive yang sudah memiliki folder KriptoInfoDongle atau KryptoInfoDongle
+      const existingFolderDrives = getDrivesWithDongleFolder();
+      let targetDrive = existingFolderDrives[0] || null;
+
+      // 2. Jika belum ada folder dongle, cari drive removable Windows yang aktif (force scan agar flashdisk baru terdeteksi)
+      if (!targetDrive) {
+        const remDrives = await getWindowsRemovableDrives({ force: true });
+        if (remDrives.length > 0) {
+          targetDrive = remDrives[0];
+        }
       }
 
-      if (roots.length === 0) {
+      // 3. Fallback ke getDongleRoots (misalnya DONGLE_EXTRA_ROOTS)
+      if (!targetDrive) {
+        const roots = await getDongleRoots();
+        if (roots.length > 0) {
+          targetDrive = roots[0];
+        }
+      }
+
+      if (!targetDrive) {
         return sendJson(res, 404, {
           success: false,
           code: 'FLASHDISK_NOT_FOUND',
-          message: 'Flashdisk tidak terdeteksi. Colokkan flashdisk terlebih dahulu.'
+          message: 'Flashdisk USB tidak terdeteksi. Colokkan flashdisk terlebih dahulu ke komputer.'
         });
       }
 
-      const targetDrive = roots[0];
-      const targetFolder = path.join(targetDrive, 'KryptoInfoDongle');
+      // Tentukan nama folder: jika folder KriptoInfoDongle atau KryptoInfoDongle sudah ada, gunakan itu.
+      // Jika belum ada, default ke KriptoInfoDongle sesuai permintaan pengguna.
+      let folderName = 'KriptoInfoDongle';
+      const kriptoFolder = path.join(targetDrive, 'KriptoInfoDongle');
+      const kryptoFolder = path.join(targetDrive, 'KryptoInfoDongle');
+      if (existsSync(kriptoFolder)) {
+        folderName = 'KriptoInfoDongle';
+      } else if (existsSync(kryptoFolder)) {
+        folderName = 'KryptoInfoDongle';
+      } else {
+        folderName = 'KriptoInfoDongle';
+      }
+
+      const targetFolder = path.join(targetDrive, folderName);
       const saved = await saveDongleToFolder(targetFolder, username.trim(), privateKeyPkcs8.trim());
 
       return sendJson(res, 200, {
         success: true,
         message: `Dongle berhasil disimpan ke ${saved.filePath}`,
         drive: targetDrive,
-        folder: 'KryptoInfoDongle',
+        folder: folderName,
         fileName: saved.fileName,
         filePath: saved.filePath
       });
